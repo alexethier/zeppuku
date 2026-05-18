@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG_PATH="${HOME}/.cursor/cli-config.json"
+
+if [[ $# -ne 0 ]]; then
+  echo "generate-auto-deny-list does not accept arguments" >&2
+  exit 2
+fi
+
+if [[ ! -f "$CONFIG_PATH" ]]; then
+  echo "config not found: $CONFIG_PATH" >&2
+  exit 1
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "jq is required but not found in PATH" >&2
+  exit 1
+fi
+
+tmp_allowed="$(mktemp "${TMPDIR:-/tmp}/cursor-allow-shell.XXXXXX")"
+tmp_all_cmds="$(mktemp "${TMPDIR:-/tmp}/cursor-all-cmds.XXXXXX")"
+tmp_deny_bases="$(mktemp "${TMPDIR:-/tmp}/cursor-deny-bases.XXXXXX")"
+trap 'rm -f "$tmp_allowed" "$tmp_all_cmds" "$tmp_deny_bases"' EXIT
+
+# Extract allowed Shell command bases from config.
+jq -r '
+  .permissions.allow[]?
+  | select(type=="string")
+  | capture("^Shell\\((?<spec>.*)\\)$")?.spec
+  | select(. != null)
+  | split(":")[0]
+  | split(" ")[0]
+  | select(length > 0)
+' "$CONFIG_PATH" \
+  | grep -E '^[A-Za-z0-9][A-Za-z0-9._+/-]*$' \
+  | sort -u > "$tmp_allowed"
+
+# List command bases visible to the current shell session.
+compgen -c \
+  | awk 'NF { print $1 }' \
+  | grep -E '^[A-Za-z0-9][A-Za-z0-9._+/-]*$' \
+  | sort -u > "$tmp_all_cmds"
+
+# "Everything else" = all command bases minus allowed command bases.
+comm -23 "$tmp_all_cmds" "$tmp_allowed" > "$tmp_deny_bases"
+
+# Fixed output: JSON array of deny tokens.
+awk '{ print "Shell(" $0 ")\nShell(" $0 " *)" }' "$tmp_deny_bases" \
+  | jq -R -s 'split("\n") | map(select(length > 0)) | unique'

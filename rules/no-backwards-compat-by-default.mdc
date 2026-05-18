@@ -1,0 +1,12 @@
+---
+description: Do not add backward compatibility code unless explicitly requested by the user.
+alwaysApply: true
+---
+
+# No Backward Compatibility By Default
+
+When implementing or modifying code:
+
+- Do **not** add backward-compatibility logic, aliases, migrations, legacy fallbacks, or dual-path behavior unless the user explicitly requests backward compatibility.
+- Prefer clean replacement of old behavior with the new behavior.
+- If backward compatibility might be needed but was not requested, ask the user before adding it.

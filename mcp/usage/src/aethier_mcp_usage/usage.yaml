@@ -1,0 +1,254 @@
+list_jobs: 'list_jobs(folder="")
+
+
+  Folders are navigated as ''parent/child/grandchild''. Multibranch branch
+
+  names with literal slashes (e.g. ''dev/ae-main'') must be percent-encoded
+
+  as %2F when passed as a segment, e.g.
+
+  list_jobs(''team-builds/dev%2Fmain''). Each entry includes
+
+  name, url, color (None for folders), and a friendly type label
+
+  (pipeline / freestyle / folder / multibranch / raw _class).
+
+  '
+get_job_status: 'get_job_status(name)
+
+
+  `running` is True if the job''s color has the `_anime` suffix or its
+
+  last_build is still building. `last_build` is None if the job has
+
+  never built. Use folder-prefixed names like ''Streamlit/some-job'' for
+
+  jobs inside folders. For multibranch pipelines whose branch name
+
+  contains a slash, percent-encode the in-segment slash as %2F:
+
+  get_job_status(''team-builds/dev%2Fmain'').
+
+  '
+list_runs: 'list_runs(name, limit=20)
+
+
+  Each entry has the same shape as `last_build` from get_job_status:
+
+  number, result, building, timestamp_ms, duration_ms, url. Use the
+
+  `number` here to feed into console(name, build=<number>). Returns []
+
+  if the job has never built.
+
+  '
+console: 'console(name, build="lastBuild", tail=500)
+
+
+  `build` accepts a build number (''1234'') or one of the permalinks
+
+  ''lastBuild'' / ''lastSuccessfulBuild'' / ''lastFailedBuild'' /
+
+  ''lastUnsuccessfulBuild'' / ''lastStableBuild'' / ''lastUnstableBuild'' /
+
+  ''lastCompletedBuild''. Pass tail=-1 to return the full log.
+
+  '
+await_run: "await_run(name, build_number)\n\nSingle-shot check for ONE specific run of a job to finish.\nPIN-only: checks `build_number`; ignores newer runs that start\nmid-wait. Find build_number via list_runs() (the entry with\ntimestamp_ms >= your push time is yours).\n\nTiming is managed internally \u2014 no budget or interval params. On the\nfirst call the tool starts a wall-clock timer. Each call checks the\nJenkins API once and returns immediately with a `sleep_before_retry_s`\nhint. If status is \"in_progress\", the caller must sleep for that\nmany seconds then re-call await_run(name, build_number) with the\nsame args.\n\nTwo-phase sleep: 500 s between checks for the first ~20 min\n(builds can't finish sooner), then 60 s until the 60 min hard\ndeadline.\n\nReturns: {status, next_action, status_message, name, build_number,\nresult (SUCCESS|FAILURE|UNSTABLE|ABORTED|None), building, url,\nduration_ms, timestamp_ms, sleep_before_retry_s (None on terminal),\nelapsed_s, remaining_s, polls}.\n\nRuntimeError if the pinned build is missing (404) or rotated out.\n"
+search_issues: "search_issues(jql=\"\", project=\"\", limit=10)\n\n`jql` is an optional JQL expression. `project` is an optional project\nkey (e.g. 'PROJ', 'APP'); if empty, falls back to JIRA_DEFAULT_PROJECT.\n`limit` is capped at 50, default 10.\n\nBehavior:\n- If `jql` is empty: query is `project = \"<project>\" ORDER BY updated DESC`.\n- If `jql` is given but has no bounding clause (no project=, key=,\n  assignee=, reporter=, creator=, or created/updated/due/resolved filter):\n  we prepend `project = \"<project>\" AND ` and append ` ORDER BY updated DESC`\n  if no ORDER BY is present.\n- If `jql` already has a bounding clause: passed through as-is. This lets\n  you run cross-project queries like `key in (PROJ-1, APP-2)` or query\n  a project other than the default.\n\nEach result is {key, summary, status, priority, assignee, reporter,\nupdated, url}. Feed `key` into read_issue(key) to get the body.\n\nNote: Jira's /search/jql endpoint rejects unbounded queries with HTTP 400.\nIf you see \"Unbounded JQL queries are not allowed\", add a bounding\nclause (e.g. `project = PROJ`, `assignee = currentUser()`, or\n`updated >= -30d`).\n"
+read_issue: "read_issue(key, format=\"text\")\n\n`key` is an issue key like 'PROJ-10705' or 'APP-1234'. `format`\ncontrols the body representation:\n  - 'text' (default) rendered HTML stripped to plain text\n  - 'html'           rendered HTML (from Jira's renderedFields expand)\n\nAlways fetches up to 50 comments (newest-API-default ordering).\n\nReturns {key, summary, status, priority, assignee, reporter, labels,\ncreated, updated, url, format, description, comments: [{comment_id,\nauthor, created, body}]}.\n"
+comment: 'comment(key, body, comment_id="")
+
+
+  `key` is an issue key like ''PROJ-10705''. `body` is the comment text
+
+  (plain text; will be wrapped in an ADF paragraph node for the API).
+
+  `comment_id` is optional; if provided the existing comment is updated
+
+  (PUT), otherwise a new comment is created (POST). Get comment IDs
+
+  from read_issue().
+
+
+  Returns {key, comment_id, author, created, body}.
+
+  '
+transition: 'transition(key, status)
+
+
+  `key` is an issue key like ''PROJ-10705''. `status` is the target status
+
+  name (case-insensitive substring match against available transitions,
+
+  e.g. ''done'', ''in progress'', ''in review'').
+
+
+  Fetches available transitions for the issue, finds the best match by
+
+  name, and executes it. Raises if no match is found.
+
+
+  Returns {key, transition_id, transition_name}.
+
+  '
+attach_file: 'attach_file(key, file_path)
+
+
+  `key` is an issue key like ''PROJ-10705''. `file_path` is the absolute
+
+  path to the file on the host (not the container) filesystem.
+
+
+  Reads the file via the host bridge (base64) so it works regardless of
+
+  container filesystem isolation. Suitable for typical attachments (logs,
+
+  screenshots, CSVs); very large files will be slow.
+
+
+  Returns {key, attachment_id, filename, size, mime_type, url}.
+
+  '
+list_projects: 'list_projects(limit=50)
+
+
+  `limit` is capped at 100, default 50. Returns [{key, name, type, url}].
+
+  Use this to discover project keys (e.g. PROJ, APP) for search_issues.
+
+  '
+post: "post(text, channel=None)\n\nArgs:\n  text:    Message body; must be non-empty.\n  channel: Optional Slack channel id (e.g. C0123456789). Defaults to\n           $AETHIER_BOT_NOTIFICATIONS_SLACK_CHANNEL_ID when omitted.\n\nRecords the message's `ts` in per-channel state so a subsequent\nawait_response(channel=...) call on the same channel can poll for\nreplies after it.\n\nSlack relay protocol: every post() should be followed by\nawait_response() on the same channel \u2014 that's how the agent waits\nfor the human's next instruction. Skip the await_response only if\nthe user has explicitly told you not to wait.\n\nReturns {ok, ts, channel, next_action} where ts is the message\ntimestamp, channel is the channel id the message landed in (echoed\nby Slack), and next_action reminds the caller to await.\n"
+await_response: "await_response(channel=None)\n\nSingle-shot poll for a response from $AETHIER_USER_SLACK_USER_ID\nin `channel` (defaults to $AETHIER_BOT_NOTIFICATIONS_SLACK_CHANNEL_ID),\nafter that channel's most recent post(). Timing is fully managed by\nthe tool.\n\nIf the response asks you to sleep, sleep the suggested amount and\nthen re-call await_response() with the same `channel` argument.\n\nThree return shapes:\n  - {status: \"found\", channel, message: {ts, user, text}, next_action,\n     polls, elapsed_s} - the user replied; per-channel state cleared.\n  - {status: \"timeout\", channel, next_action, polls, elapsed_s} - 4h\n     budget exhausted; per-channel state cleared.\n  - {status: \"in_progress\", channel, sleep_before_retry_s, next_action,\n     polls, elapsed_s, remaining_s} - keep polling.\n"
+start_conversation: "start_conversation(name=None)\n\nCreate a new private Slack channel and invite $AETHIER_USER_SLACK_USER_ID.\nThe name should usually be the JIRA ticket id (for example PROJ-123).\n\nArgs:\n  name: Optional channel name. If omitted, auto-generated as\n        `aethier-chat-<unix-ts>`. Names are sanitized to Slack's rules\n        (lowercase, a-z/0-9/-/_, <=80 chars) before submission.\n\nReturns {ok, channel_id, channel_name, invited_user}.\n"
+create_workflow: 'create_workflow(workflow_id, initial_state)
+
+
+  Create one workflow snapshot record in the workflow-state datastore.
+
+  `workflow_id` must be stable and unique for the workflow item.
+
+  `initial_state` must be one canonical workflow state:
+
+  backlog, implementation_plan:drafted, implementation_plan:accepted,
+
+  implementation_plan:denied, implemented, implementation:accepted,
+
+  in_depth_review:accepted, in_depth_review:denied, implementation:denied,
+
+  smoke_test_plan:drafted, smoke_test_plan:accepted,
+
+  smoke_test_plan:denied, instrumentation_added,
+
+  test_plan_with_instrumentation_added, tested:instrumentation,
+
+  tested:instrumentation:repeated:accepted, tested:instrumentation:repeated:denied,
+
+  jenkins_build:success, jenkins_build:failure, cleanup:remove_instrumentation,
+
+  final_smoke_test:accepted, final_smoke_test:denied,
+
+  final_jenkins_build:success:ready_for_human, final_jenkins_build:denied.
+
+
+  Returns no value.
+
+  Raises if workflow_id already exists or state is invalid.
+
+  '
+get_workflow: 'get_workflow(workflow_id)
+
+
+  Read the current state for one workflow id.
+
+
+  Returns the current state string.
+
+  Raises if workflow_id does not exist.
+
+  '
+list_workflows: 'list_workflows()
+
+
+  List all workflow snapshot rows.
+
+
+  Returns:
+
+  - a list of objects: [{"workflow_id": "...", "state": "..."}, ...]
+
+  - ordered by workflow_id ascending.
+
+  '
+transition_workflow: 'transition_workflow(workflow_id, to_state)
+
+
+  Update the current state for one existing workflow id.
+
+  This MCP enforces strict transition edges:
+
+  backlog -> implementation_plan:drafted
+
+  implementation_plan:drafted -> implementation_plan:accepted|implementation_plan:denied
+
+  implementation_plan:accepted -> implemented
+
+  implementation_plan:denied -> implementation_plan:drafted
+
+  implemented -> implementation:accepted|implementation:denied
+
+  implementation:accepted -> in_depth_review:accepted|in_depth_review:denied
+
+  in_depth_review:accepted -> smoke_test_plan:drafted
+
+  in_depth_review:denied -> implemented
+
+  implementation:denied -> implemented
+
+  smoke_test_plan:drafted -> smoke_test_plan:accepted|smoke_test_plan:denied
+
+  smoke_test_plan:denied -> smoke_test_plan:drafted
+
+  smoke_test_plan:accepted -> instrumentation_added
+
+  instrumentation_added -> test_plan_with_instrumentation_added
+
+  test_plan_with_instrumentation_added -> tested:instrumentation
+
+  tested:instrumentation -> tested:instrumentation:repeated:accepted|tested:instrumentation:repeated:denied
+
+  tested:instrumentation:repeated:accepted -> jenkins_build:success
+
+  tested:instrumentation:repeated:denied -> jenkins_build:failure
+
+  jenkins_build:success -> cleanup:remove_instrumentation
+
+  jenkins_build:failure -> tested:instrumentation
+
+  cleanup:remove_instrumentation -> final_smoke_test:accepted|final_smoke_test:denied
+
+  final_smoke_test:accepted -> final_jenkins_build:success:ready_for_human
+
+  final_smoke_test:denied -> final_jenkins_build:denied
+
+  final_jenkins_build:success:ready_for_human has no outgoing transitions.
+
+  final_jenkins_build:denied has no outgoing transitions.
+
+
+  Returns no value.
+
+  Raises if workflow_id does not exist, state is invalid, or transition is not allowed.
+
+  '
+delete_workflow: 'delete_workflow(workflow_id)
+
+
+  Delete one workflow snapshot row by workflow id.
+
+
+  Returns no value.
+
+  Raises if workflow_id does not exist.
+
+  '

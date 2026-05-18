@@ -1,0 +1,8 @@
+[project]
+name = "aethier-mcp"
+version = "0.1.0"
+description = "Containerized MCP servers with a host bridge."
+requires-python = ">=3.11"
+
+[tool.uv.workspace]
+members = ["packages/*", "mcp/*"]

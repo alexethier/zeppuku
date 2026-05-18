@@ -1,0 +1,22 @@
+[project]
+name = "aethier-mcp-ai-datastore"
+version = "0.1.0"
+description = "MCP server for workflow note storage backed by csvq adapter metadata and host files."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["aethier-mcp-core", "aethier-mcp-lib"]
+authors = [{ name = "aethier" }]
+
+[project.scripts]
+aethier-mcp-ai-datastore = "aethier_mcp_ai_datastore.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aethier_mcp_ai_datastore"]
+
+[tool.uv.sources]
+aethier-mcp-core = { workspace = true }
+aethier-mcp-lib = { workspace = true }

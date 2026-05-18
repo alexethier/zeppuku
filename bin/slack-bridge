@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+WORKSPACE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+STATE="$WORKSPACE_DIR/bin/aedev-state"
+BRIDGE_DIR="$WORKSPACE_DIR/slack-bridge"
+LOG_DIR="$HOME/.aedev/aethier-mcp/slack-bridge"
+LOG_FILE="$LOG_DIR/server.log"
+THREADS_FILE="$LOG_DIR/threads.json"
+MEMBERSHIPS_FILE="$LOG_DIR/memberships.json"
+PID_KEY="slack-bridge.pid"
+
+log() { echo "[slack-bridge] $*"; }
+err() { echo "[slack-bridge] $*" >&2; }
+
+get_pid() {
+    "$STATE" get "$PID_KEY"
+}
+
+is_alive() {
+    local pid="$1"
+    [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+}
+
+cmd_build() {
+    log "building slack-bridge"
+    cd "$BRIDGE_DIR"
+    npm ci --silent
+    npx tsc
+    log "build complete"
+}
+
+cmd_start() {
+    local existing_pid
+    existing_pid="$(get_pid)"
+    if is_alive "$existing_pid"; then
+        log "already running (pid=$existing_pid)"
+        return 0
+    fi
+
+    if [[ ! -d "$BRIDGE_DIR/dist" ]]; then
+        log "dist/ not found, building first"
+        cmd_build
+    fi
+
+    if [[ -f "$BRIDGE_DIR/.env" ]]; then
+        set -a
+        # shellcheck disable=SC1091
+        source "$BRIDGE_DIR/.env"
+        set +a
+    fi
+
+    mkdir -p "$LOG_DIR"
+
+    log "starting slack-bridge"
+    nohup node "$BRIDGE_DIR/dist/src/index.js" >> "$LOG_FILE" 2>&1 &
+    local pid=$!
+    "$STATE" set "$PID_KEY" "$pid"
+    log "started (pid=$pid), logs: $LOG_FILE"
+}
+
+cmd_stop() {
+    local pid
+    pid="$(get_pid)"
+    if [[ -z "$pid" ]]; then
+        log "not running (no pid)"
+        return 0
+    fi
+    if is_alive "$pid"; then
+        log "stopping (pid=$pid)"
+        kill "$pid" 2>/dev/null || true
+        sleep 1
+        if is_alive "$pid"; then
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+    else
+        log "stale pid=$pid (process gone)"
+    fi
+    "$STATE" unset "$PID_KEY"
+    log "stopped"
+}
+
+cmd_restart() {
+    cmd_stop
+    cmd_start
+}
+
+cmd_status() {
+    local pid
+    pid="$(get_pid)"
+    if [[ -z "$pid" ]]; then
+        log "not running"
+        return
+    fi
+    if is_alive "$pid"; then
+        log "running (pid=$pid)"
+        if [[ -f "$LOG_FILE" ]]; then
+            local mod
+            mod="$(stat -f '%Sm' -t '%Y-%m-%d %H:%M:%S' "$LOG_FILE" 2>/dev/null || stat -c '%y' "$LOG_FILE" 2>/dev/null || echo "unknown")"
+            log "log last modified: $mod"
+        fi
+    else
+        log "stale pid=$pid (process not running)"
+    fi
+}
+
+cmd_logs() {
+    if [[ ! -f "$LOG_FILE" ]]; then
+        err "no log file at $LOG_FILE"
+        exit 1
+    fi
+    tail -F "$LOG_FILE"
+}
+
+cmd_reset_threads() {
+    if [[ -f "$THREADS_FILE" ]]; then
+        rm -f "$THREADS_FILE"
+        log "removed $THREADS_FILE (next message starts a fresh agent)"
+    else
+        log "no threads file at $THREADS_FILE (already clean)"
+    fi
+}
+
+usage() {
+    cat >&2 <<EOF
+usage: $0 <command>
+
+commands:
+  build    npm ci + tsc
+  start    start the bridge (auto-builds if dist/ missing)
+  stop     stop the bridge
+  restart  stop + start
+  status   show running state
+  logs     tail -F the log file
+  reset-threads
+           wipe stored cursor agent IDs so the next message creates fresh agents
+           (use after editing a YAML systemPrompt or model)
+EOF
+    exit 2
+}
+
+cmd="${1:-}"
+[[ -z "$cmd" ]] && usage
+shift || true
+
+case "$cmd" in
+    build)   cmd_build ;;
+    start)   cmd_start ;;
+    stop)    cmd_stop ;;
+    restart) cmd_restart ;;
+    status)  cmd_status ;;
+    logs)    cmd_logs ;;
+    reset-threads) cmd_reset_threads ;;
+    *)       usage ;;
+esac

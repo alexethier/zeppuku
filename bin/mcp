@@ -1,0 +1,215 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "mcp>=1.0",
+#     "pyyaml>=6",
+# ]
+# ///
+"""Talk to a running aethier-mcp agent.
+
+Usage:
+    mcp <agent>                          # chat REPL via cursor-agent
+    mcp <agent> tools                    # list the agent's tools (no LLM)
+    mcp <agent> call <tool> [k=v ...]    # call a tool directly (no LLM)
+
+The REPL shells out to `cursor-agent`. It auto-wires the agent's HTTP MCP
+endpoint into a throwaway workspace at:
+
+    ~/.aedev/aethier-mcp/cursor-workspaces/<agent>/
+
+so you don't have to touch your global ~/.cursor/mcp.json. The workspace
+persists across invocations (cursor-agent can keep notes/transcripts there
+if it wants to), but the mcp.json is rewritten every launch in case the
+agent's port changed.
+
+Argument values for `call` parse as JSON when possible (e.g. `count=5`,
+`on=true`, `items=[1,2,3]`), otherwise treated as strings (`path=/Users`).
+
+Prerequisites:
+    cursor-agent installed and logged in (`cursor-agent login`)
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import pathlib
+import shutil
+import sys
+
+import yaml
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
+
+STATE_FILE = pathlib.Path(
+    os.path.expanduser("~/.aedev/aethier-mcp/state.yaml")
+)
+CURSOR_WORKSPACES = pathlib.Path(
+    os.path.expanduser("~/.aedev/aethier-mcp/cursor-workspaces")
+)
+
+
+# =========================================================================
+# State / URL
+# =========================================================================
+
+def state_get(key: str):
+    if not STATE_FILE.exists():
+        return None
+    data = yaml.safe_load(STATE_FILE.read_text()) or {}
+    for k in key.split("."):
+        if not isinstance(data, dict) or k not in data:
+            return None
+        data = data[k]
+    return data
+
+
+def agent_url(name: str) -> str:
+    port = state_get(f"mcps.{name}.port")
+    if port is None:
+        sys.exit(
+            f"mcp '{name}' has no assigned port. "
+            f"start it first: ./bin/manager start {name}"
+        )
+    return f"http://localhost:{port}/mcp"
+
+
+# =========================================================================
+# Shared helpers
+# =========================================================================
+
+def parse_kv(arg: str) -> tuple[str, object]:
+    if "=" not in arg:
+        sys.exit(f"argument must be key=value, got: {arg}")
+    key, raw = arg.split("=", 1)
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        value = raw
+    return key, value
+
+
+def render_content(item) -> None:
+    text = getattr(item, "text", None)
+    if text is not None:
+        print(text)
+    else:
+        print(item)
+
+
+# =========================================================================
+# Direct (no-LLM) subcommands
+# =========================================================================
+
+async def cmd_tools(name: str) -> None:
+    url = agent_url(name)
+    async with streamablehttp_client(url) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            result = await session.list_tools()
+            for tool in result.tools:
+                print(tool.name)
+                if tool.description:
+                    for line in tool.description.splitlines():
+                        print(f"  {line}")
+                schema = tool.inputSchema if isinstance(tool.inputSchema, dict) else {}
+                props = schema.get("properties", {})
+                required = set(schema.get("required", []))
+                if props:
+                    print("  args:")
+                    for pname, pdef in props.items():
+                        ptype = pdef.get("type", "?") if isinstance(pdef, dict) else "?"
+                        marker = "*" if pname in required else " "
+                        desc = (pdef.get("description", "") if isinstance(pdef, dict) else "") or ""
+                        suffix = f" -- {desc}" if desc else ""
+                        print(f"    {marker} {pname}: {ptype}{suffix}")
+                print()
+
+
+async def cmd_call(name: str, tool: str, kv_args: list[str]) -> None:
+    url = agent_url(name)
+    args = dict(parse_kv(a) for a in kv_args)
+    async with streamablehttp_client(url) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            result = await session.call_tool(tool, args)
+            for item in result.content:
+                render_content(item)
+            if result.isError:
+                sys.exit(2)
+
+
+# =========================================================================
+# REPL via cursor-agent
+# =========================================================================
+
+def cmd_repl(name: str) -> None:
+    if not shutil.which("cursor-agent"):
+        sys.exit(
+            "cursor-agent not found in PATH.\n"
+            "install it from your usual channel and run `cursor-agent login` first."
+        )
+
+    url = agent_url(name)
+    workspace = CURSOR_WORKSPACES / name
+    cursor_dir = workspace / ".cursor"
+    cursor_dir.mkdir(parents=True, exist_ok=True)
+
+    config = {
+        "mcpServers": {
+            name: {
+                "type": "http",
+                "url": url,
+            }
+        }
+    }
+    (cursor_dir / "mcp.json").write_text(json.dumps(config, indent=2) + "\n")
+
+    print(f"agent:     {name}")
+    print(f"url:       {url}")
+    print(f"workspace: {workspace}")
+    print()
+
+    cmd = [
+        "cursor-agent",
+        "--workspace", str(workspace),
+        "--approve-mcps",
+    ]
+    os.execvp(cmd[0], cmd)
+
+
+# =========================================================================
+# Entrypoint
+# =========================================================================
+
+def usage() -> None:
+    sys.stderr.write(__doc__ or "")
+    sys.exit(2)
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help"):
+        usage()
+
+    name = args[0]
+    if len(args) == 1:
+        cmd_repl(name)
+        return
+
+    op = args[1]
+    if op == "tools":
+        asyncio.run(cmd_tools(name))
+        return
+    if op == "call":
+        if len(args) < 3:
+            sys.exit("usage: mcp <agent> call <tool> [k=v ...]")
+        asyncio.run(cmd_call(name, args[2], args[3:]))
+        return
+
+    sys.exit(f"unknown op: {op}")
+
+
+if __name__ == "__main__":
+    main()

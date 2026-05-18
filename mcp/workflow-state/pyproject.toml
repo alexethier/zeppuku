@@ -1,0 +1,22 @@
+[project]
+name = "aethier-mcp-workflow-state"
+version = "0.1.0"
+description = "MCP server for minimal workflow state tracking via csvq over CSV."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["aethier-mcp-core", "aethier-mcp-lib"]
+authors = [{ name = "aethier" }]
+
+[project.scripts]
+aethier-mcp-workflow-state = "aethier_mcp_workflow_state.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aethier_mcp_workflow_state"]
+
+[tool.uv.sources]
+aethier-mcp-core = { workspace = true }
+aethier-mcp-lib = { workspace = true }

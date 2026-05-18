@@ -1,0 +1,22 @@
+# Shared base image for all aethier-mcp servers.
+#   docker build -f Dockerfile.base -t aethier-mcp-base .
+#
+# Contains everything common to every MCP:
+# - python 3.13 runtime
+# - aethier-mcp-core (pulls in mcp + websockets + their transitives)
+# - httpx (used by every MCP except host-poc; cheap to include for it too)
+#
+# Per-MCP Dockerfiles FROM this image and add their own package + CMD.
+# Runtime config (MCP_HOST, MCP_PORT, BRIDGE_URL) is set by bin/manager
+# via `docker run -e`, with sane code-side defaults in
+# aethier_mcp_core.server, so no ENV lines are needed here.
+#
+# Rebuilt automatically by bin/manager before every MCP build; cached
+# instantly when nothing under packages/aethier-mcp-core/ has changed.
+FROM python:3.13-slim
+
+WORKDIR /app
+
+COPY packages/aethier-mcp-core /tmp/core
+RUN pip install --no-cache-dir /tmp/core "httpx>=0.27" \
+    && rm -rf /tmp/core

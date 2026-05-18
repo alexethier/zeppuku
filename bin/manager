@@ -1,0 +1,481 @@
+#!/usr/bin/env bash
+# Generic controller for aethier-mcp server containers.
+# Discovers MCPs under mcp/<name>/ (must contain a Dockerfile).
+# Persists port assignments via aedev-state.
+set -euo pipefail
+
+WORKSPACE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+STATE="$WORKSPACE_DIR/bin/aedev-state"
+MCP_DIR="$WORKSPACE_DIR/mcp"
+BASE_PORT=8000
+
+# Env vars to forward from the manager's shell into every MCP container.
+# Add new names here when an MCP needs a credential/config var. Each var
+# is passed via `docker run -e NAME=VALUE` only if it's set in the shell;
+# unset vars are skipped silently so MCPs that don't need them aren't
+# broken by their absence. Keep this list short \u2014 it's the union across
+# all MCPs.
+MCP_ENV_PASSTHROUGH=(
+    JENKINS_URL
+    JENKINS_USER
+    JENKINS_TOKEN
+    CONFLUENCE_BASE_URL
+    JIRA_BASE_URL
+    JIRA_DEFAULT_PROJECT
+    ATLASSIAN_EMAIL
+    ATLASSIAN_TOKEN
+    GIT_TOKEN
+    GITHUB_API_URL
+    SLACK_BOT_TOKEN
+    AETHIER_BOT_NOTIFICATIONS_SLACK_CHANNEL_ID
+    AETHIER_USER_SLACK_USER_ID
+)
+
+log() { echo "[mcp] $*"; }
+err() { echo "[mcp] $*" >&2; }
+
+mcp_dir() {
+    local d="$MCP_DIR/$1"
+    if [[ ! -f "$d/Dockerfile" ]]; then
+        err "no mcp: $1 (looked in $d)"
+        exit 1
+    fi
+    echo "$d"
+}
+
+image_name()     { echo "aethier-mcp-$1"; }
+container_name() { echo "aethier-mcp-$1"; }
+
+list_mcps() {
+    for d in "$MCP_DIR"/*/; do
+        [[ -f "$d/Dockerfile" ]] && basename "$d"
+    done
+}
+
+is_running() {
+    local cname; cname="$(container_name "$1")"
+    docker ps --filter "name=^${cname}$" --format '{{.ID}}' 2>/dev/null | grep -q .
+}
+
+assign_port() {
+    local saved
+    saved="$("$STATE" get "mcps.$1.port")"
+    if [[ -n "$saved" ]]; then
+        echo "$saved"
+        return
+    fi
+
+    local port=$((BASE_PORT + 1))
+    while :; do
+        local taken=0
+        for other in $(list_mcps); do
+            local op; op="$("$STATE" get "mcps.$other.port")"
+            if [[ "$op" == "$port" ]]; then
+                taken=1
+                break
+            fi
+        done
+        [[ $taken -eq 0 ]] && break
+        port=$((port + 1))
+    done
+
+    "$STATE" set "mcps.$1.port" "$port"
+    echo "$port"
+}
+
+BASE_IMAGE="aethier-mcp-base"
+BASE_DOCKERFILE="$WORKSPACE_DIR/Dockerfile.base"
+
+# Build (or refresh) the shared base image. Cheap when nothing under
+# packages/aethier-mcp-core/ has changed (Docker hits its layer cache);
+# rebuilds the heavy core layer only when core actually changed.
+cmd_build_base() {
+    log "building $BASE_IMAGE (cache: yes)"
+    docker build -f "$BASE_DOCKERFILE" -t "$BASE_IMAGE" "$WORKSPACE_DIR"
+}
+
+cmd_build() {
+    local name="$1"
+    mcp_dir "$name" >/dev/null
+    local image; image="$(image_name "$name")"
+    cmd_build_base
+    log "building $image"
+    docker build -f "$MCP_DIR/$name/Dockerfile" -t "$image" "$WORKSPACE_DIR"
+}
+
+cmd_start() {
+    local name="$1"
+    mcp_dir "$name" >/dev/null
+
+    local image; image="$(image_name "$name")"
+    local cname; cname="$(container_name "$name")"
+
+    if is_running "$name"; then
+        local port; port="$("$STATE" get "mcps.$name.port")"
+        log "$name already running on http://localhost:$port/mcp"
+        return 0
+    fi
+
+    if ! docker image inspect "$image" >/dev/null 2>&1; then
+        log "image $image not found, building"
+        cmd_build "$name"
+    fi
+
+    docker rm -f "$cname" >/dev/null 2>&1 || true
+
+    local port; port="$(assign_port "$name")"
+
+    # Forward configured env vars from this shell into the container so MCPs
+    # Load latest env vars in user's bash profile.
+    source "$HOME/.bash_profile" 2>/dev/null || true
+    local env_args=()
+    local var
+    for var in "${MCP_ENV_PASSTHROUGH[@]}"; do
+        if [[ -n "${!var:-}" ]]; then
+            env_args+=(-e "$var=${!var}")
+        fi
+    done
+
+    # Mount the host log dir into the container at the same path so MCPs
+    # can append to ~/.aedev/aethier-mcp/mcp.log (the shared tool-call log
+    # written by aethier_mcp_core's toollog middleware). Create on host first
+    # so the bind mount doesn't materialize as root-owned.
+    mkdir -p "$HOME/.aedev/aethier-mcp"
+
+    log "starting $name on port $port"
+    docker run -d --name "$cname" -p "$port:8000" \
+        -v "$HOME/.aedev/aethier-mcp:$HOME/.aedev/aethier-mcp" \
+        -e "HOME=$HOME" \
+        ${env_args[@]+"${env_args[@]}"} "$image" >/dev/null
+    log "started $name -> http://localhost:$port/mcp"
+}
+
+cmd_suspend() {
+    local name="$1"
+    local cname; cname="$(container_name "$name")"
+
+    if is_running "$name"; then
+        log "suspending $name (image kept)"
+        docker stop "$cname" >/dev/null
+    else
+        log "$name not running"
+    fi
+    docker rm -f "$cname" >/dev/null 2>&1 || true
+}
+
+cmd_stop() {
+    local name="$1"
+    local image; image="$(image_name "$name")"
+
+    cmd_suspend "$name"
+
+    if docker image inspect "$image" >/dev/null 2>&1; then
+        log "removing image $image (will rebuild on next start)"
+        docker rmi "$image" >/dev/null 2>&1 || true
+    fi
+}
+
+cmd_restart() {
+    cmd_stop "$1"
+    cmd_start "$1"
+}
+
+cmd_status() {
+    if [[ $# -eq 0 ]]; then
+        for name in $(list_mcps); do
+            cmd_status "$name"
+        done
+        return
+    fi
+    local name="$1"
+    if is_running "$name"; then
+        local port; port="$("$STATE" get "mcps.$name.port")"
+        log "$name running -> http://localhost:$port/mcp"
+    else
+        log "$name not running"
+    fi
+}
+
+cmd_logs() {
+    local cname; cname="$(container_name "$1")"
+    docker logs -f "$cname"
+}
+
+cmd_list() {
+    for name in $(list_mcps); do
+        local port; port="$("$STATE" get "mcps.$name.port")"
+        local state="stopped"
+        is_running "$name" && state="running"
+        printf "  %-20s %-8s port=%s\n" "$name" "$state" "${port:--}"
+    done
+}
+
+CURSOR_MCP_JSON="$HOME/.cursor/mcp.json"
+CLAUDE_CONFIG_JSON="$HOME/.claude.json"
+
+_register_in_config() {
+    local config_file="$1"
+    local server_name="$2"
+    local url="$3"
+    local target="$4" # cursor|claude (schema shape)
+
+    mkdir -p "$(dirname "$config_file")"
+    if [[ ! -f "$config_file" ]]; then
+        echo '{"mcpServers": {}}' > "$config_file"
+    fi
+
+    local tmp; tmp="$(mktemp "${config_file}.XXXXXX")"
+    local jq_expr
+    if [[ "$target" == "cursor" ]]; then
+        jq_expr='.mcpServers = (.mcpServers // {}) | .mcpServers[$name] = {url: $url}'
+    else
+        jq_expr='.mcpServers = (.mcpServers // {}) | .mcpServers[$name] = {type: "http", url: $url}'
+    fi
+
+    if ! jq --arg name "$server_name" --arg url "$url" "$jq_expr" \
+        "$config_file" > "$tmp"; then
+        rm -f "$tmp"
+        err "failed to update $config_file"
+        return 1
+    fi
+    mv "$tmp" "$config_file"
+}
+
+_unregister_in_config() {
+    local config_file="$1"
+    local server_name="$2"
+
+    if [[ ! -f "$config_file" ]]; then
+        log "$config_file does not exist; nothing to unregister"
+        return 0
+    fi
+
+    local tmp; tmp="$(mktemp "${config_file}.XXXXXX")"
+    if ! jq --arg name "$server_name" 'del(.mcpServers[$name])' \
+        "$config_file" > "$tmp"; then
+        rm -f "$tmp"
+        err "failed to update $config_file"
+        return 1
+    fi
+    mv "$tmp" "$config_file"
+}
+
+# Register in BOTH Cursor and Claude config files.
+cmd_register_mcp() {
+    local name="$1"
+    mcp_dir "$name" >/dev/null
+
+    if ! command -v jq >/dev/null 2>&1; then
+        err "jq is required for register-mcp (brew install jq)"
+        return 1
+    fi
+
+    local port; port="$("$STATE" get "mcps.$name.port")"
+    if [[ -z "$port" ]]; then
+        err "$name has no port assigned yet. Run './bin/manager start $name' first."
+        return 1
+    fi
+
+    local url="http://localhost:$port/mcp"
+    if ! _register_in_config "$CURSOR_MCP_JSON" "$name" "$url" "cursor"; then
+        return 1
+    fi
+    if ! _register_in_config "$CLAUDE_CONFIG_JSON" "$name" "$url" "claude"; then
+        return 1
+    fi
+
+    log "registered $name in $CURSOR_MCP_JSON ($url)"
+    log "registered $name in $CLAUDE_CONFIG_JSON ($url)"
+    log "reload Cursor/Claude (or MCP panel/settings) to pick up changes"
+}
+
+# Unregister from BOTH Cursor and Claude config files.
+cmd_unregister_mcp() {
+    local name="$1"
+
+    if ! command -v jq >/dev/null 2>&1; then
+        err "jq is required for unregister-mcp (brew install jq)"
+        return 1
+    fi
+    if ! _unregister_in_config "$CURSOR_MCP_JSON" "$name"; then
+        return 1
+    fi
+    if ! _unregister_in_config "$CLAUDE_CONFIG_JSON" "$name"; then
+        return 1
+    fi
+
+    log "unregistered $name from $CURSOR_MCP_JSON"
+    log "unregistered $name from $CLAUDE_CONFIG_JSON"
+}
+
+# Symlink every agents/*.md into ~/.cursor/agents/ so cursor-agent picks
+# them up. Idempotent: ln -sfn always replaces the link target. Does NOT
+# remove agents the user has manually placed in ~/.cursor/agents/ that
+# don't exist here.
+cmd_install() {
+    local any=0
+
+    # --- agents ---
+    local agents_src="$WORKSPACE_DIR/agents"
+    local agents_dst="$HOME/.cursor/agents"
+    if [[ -d "$agents_src" ]]; then
+        mkdir -p "$agents_dst"
+        local count=0 f base
+        shopt -s nullglob
+        for f in "$agents_src"/*.md; do
+            base="$(basename "$f")"
+            [[ "$base" == "README.md" ]] && continue
+            ln -sfn "$f" "$agents_dst/$base"
+            log "agent: $agents_dst/$base -> $f"
+            count=$((count + 1))
+        done
+        shopt -u nullglob
+        log "installed $count agent(s)"
+        any=$((any + count))
+    fi
+
+    # --- skills ---
+    local skills_src="$WORKSPACE_DIR/skills"
+    local skills_cursor_dst="$HOME/.cursor/skills"
+    local skills_claude_dst="$HOME/.claude/skills"
+    if [[ -d "$skills_src" ]]; then
+        mkdir -p "$skills_cursor_dst" "$skills_claude_dst"
+        local count=0 d name
+        shopt -s nullglob
+        for d in "$skills_src"/*/; do
+            [[ -f "$d/SKILL.md" ]] || continue
+            name="$(basename "$d")"
+            ln -sfn "$d" "$skills_cursor_dst/$name"
+            log "skill(cursor): $skills_cursor_dst/$name -> $d"
+            ln -sfn "$d" "$skills_claude_dst/$name"
+            log "skill(claude): $skills_claude_dst/$name -> $d"
+            count=$((count + 1))
+        done
+        shopt -u nullglob
+        log "installed $count skill(s) in cursor + claude"
+        any=$((any + count))
+    fi
+
+    # --- rules ---
+    local rules_src="$WORKSPACE_DIR/rules"
+    local rules_dst="$HOME/.cursor/rules"
+    if [[ -d "$rules_src" ]]; then
+        mkdir -p "$rules_dst"
+        local count=0 f base
+        shopt -s nullglob
+        for f in "$rules_src"/*.mdc; do
+            base="$(basename "$f")"
+            ln -sfn "$f" "$rules_dst/$base"
+            log "rule: $rules_dst/$base -> $f"
+            count=$((count + 1))
+        done
+        shopt -u nullglob
+        log "installed $count rule(s)"
+        any=$((any + count))
+    fi
+
+    if [[ $any -eq 0 ]]; then
+        log "nothing to install (no agents/, skills/, or rules/ found)"
+    fi
+}
+
+usage() {
+    cat >&2 <<EOF
+usage: $0 <command> [name|all]
+
+commands:
+  build   <name|all>  build the MCP server's docker image
+  start   <name|all>  start the MCP server container (auto-builds if needed)
+  suspend <name|all>  remove container, keep image (cheap pause; start to resume)
+  stop    <name|all>  remove container AND image (forces rebuild on next start)
+  restart <name|all>  stop + start (rebuilds image)
+  status  [name|all]  status of one MCP or all (default: all)
+  logs    <name>      tail container logs (single MCP only)
+  list                list discovered MCPs and their state
+  install             symlink agents + rules into ~/.cursor/ and skills into ~/.cursor/ + ~/.claude/
+  register-mcp      <name|all>  add/update entry in BOTH ~/.cursor/mcp.json and ~/.claude.json
+                                (requires jq; MCP must have a port assigned)
+  unregister-mcp    <name|all>  remove entry from BOTH ~/.cursor/mcp.json and ~/.claude.json
+                                (requires jq)
+
+Pass 'all' (or omit name for status) to fan the action out across every
+discovered MCP. Failures on individual MCPs are reported but do not stop
+the loop.
+
+discovered MCPs:
+EOF
+    for name in $(list_mcps); do
+        echo "  - $name" >&2
+    done
+    exit 2
+}
+
+# Run a per-MCP command across every discovered MCP. Each invocation is
+# isolated: a failure on one MCP is logged but does not abort the loop,
+# so `./bin/manager start all` brings up as many MCPs as it can even if
+# one is broken (e.g. missing creds in this shell). Exits non-zero if
+# any MCP failed.
+fanout() {
+    local action="$1"
+    local any_failed=0
+    local name
+    for name in $(list_mcps); do
+        log "=== $action $name ==="
+        if ! "cmd_$action" "$name"; then
+            err "$action $name failed (continuing)"
+            any_failed=1
+        fi
+    done
+    return $any_failed
+}
+
+cmd="${1:-}"
+[[ -z "$cmd" ]] && usage
+shift || true
+
+case "$cmd" in
+    build|start|suspend|stop|restart)
+        [[ $# -ge 1 ]] || usage
+        if [[ "$1" == "all" ]]; then
+            fanout "$cmd"
+        else
+            "cmd_$cmd" "$1"
+        fi
+        ;;
+    register-mcp|unregister-mcp)
+        [[ $# -ge 1 ]] || usage
+        # Hyphens in command names → underscores in function names so
+        # bash can resolve cmd_register_mcp / cmd_unregister_mcp.
+        action="${cmd//-/_}"
+        if [[ "$1" == "all" ]]; then
+            fanout "$action"
+        else
+            "cmd_$action" "$1"
+        fi
+        ;;
+    logs)
+        [[ $# -ge 1 ]] || usage
+        if [[ "$1" == "all" ]]; then
+            err "'logs all' is not supported (docker logs -f tails a single stream)"
+            err "use './bin/manager list' to see MCPs, then 'logs <name>'"
+            exit 2
+        fi
+        cmd_logs "$1"
+        ;;
+    status)
+        if [[ $# -ge 1 && "$1" != "all" ]]; then
+            cmd_status "$1"
+        else
+            cmd_status
+        fi
+        ;;
+    list)
+        cmd_list
+        ;;
+    install|install-agents)
+        cmd_install
+        ;;
+    *)
+        usage
+        ;;
+esac
