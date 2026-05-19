@@ -13,7 +13,7 @@ members = [
     "aethier-mcp-jenkins",
     "aethier-mcp-jira",
     "aethier-mcp-lib",
-    "aethier-mcp-slack",
+    "aethier-mcp-slack-dev",
     "aethier-mcp-usage",
     "aethier-mcp-workflow-state",
 ]
@@ -132,9 +132,9 @@ dependencies = [
 requires-dist = [{ name = "aethier-mcp-core", editable = "packages/aethier-mcp-core" }]
 
 [[package]]
-name = "aethier-mcp-slack"
+name = "aethier-mcp-slack-dev"
 version = "0.1.0"
-source = { editable = "mcp/slack" }
+source = { editable = "mcp/slack-dev" }
 dependencies = [
     { name = "aethier-mcp-core" },
     { name = "httpx" },

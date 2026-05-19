@@ -1,5 +1,5 @@
 [project]
-name = "aethier-mcp-slack"
+name = "aethier-mcp-slack-dev"
 version = "0.1.0"
 description = "MCP server for posting to Slack and reading channel history."
 readme = "README.md"
@@ -8,7 +8,7 @@ dependencies = ["aethier-mcp-core", "httpx>=0.27"]
 authors = [{ name = "aethier" }]
 
 [project.scripts]
-aethier-mcp-slack = "aethier_mcp_slack.server:main"
+aethier-mcp-slack-dev = "aethier_mcp_slack.server:main"
 
 [build-system]
 requires = ["hatchling"]

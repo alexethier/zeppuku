@@ -40,7 +40,7 @@ import httpx
 
 from aethier_mcp_core import add_log_fields, create_server, run
 
-mcp = create_server("slack")
+mcp = create_server("slack-dev")
 
 BOT_TOKEN: str = os.environ["SLACK_BOT_TOKEN"]
 CHANNEL: str = os.environ["AETHIER_BOT_NOTIFICATIONS_SLACK_CHANNEL_ID"]
@@ -155,7 +155,7 @@ async def post(text: str, channel: str | None = None) -> dict:
         "next_action": (
             f"YOUR TURN IS NOT OVER. The message was posted to Slack, "
             f"but the user has not yet seen or responded to it. You MUST "
-            f"now call slack.await_response(channel={resolved_channel!r}) "
+            f"now call slack-dev.await_response(channel={resolved_channel!r}) "
             f"as your very next tool call to wait for the user's reply. "
             f"Do NOT end your turn, do NOT summarize, do NOT proceed to "
             f"any other work — call await_response immediately. The only "
@@ -227,7 +227,7 @@ async def await_response(channel: str | None = None) -> dict:
             "next_action": (
                 f"The user replied (see `message.text`). Act on their "
                 f"message, then ALWAYS report back when you're done by "
-                f"calling slack.post(text=<your response or status "
+                f"calling slack-dev.post(text=<your response or status "
                 f"update>, channel={target_channel!r}). Keep this "
                 f"post/await loop going every turn until the user "
                 f"explicitly tells you to stop."
@@ -255,7 +255,7 @@ async def await_response(channel: str | None = None) -> dict:
             "next_action": (
                 f"The user did not respond within 4h. Post a final "
                 f"summary of where you got to by calling "
-                f"slack.post(text=<final summary>, "
+                f"slack-dev.post(text=<final summary>, "
                 f"channel={target_channel!r}) so the thread captures "
                 f"the outcome, then stop waiting."
             ),
@@ -279,7 +279,7 @@ async def await_response(channel: str | None = None) -> dict:
             f"YOUR TURN IS NOT OVER. The user has NOT yet replied; "
             f"this is just one poll in an ongoing wait. You MUST sleep "
             f"for {sleep_hint} seconds and then call "
-            f"slack.await_response(channel={target_channel!r}) AGAIN "
+            f"slack-dev.await_response(channel={target_channel!r}) AGAIN "
             f"as your very next tool call. Do NOT end your turn, do NOT "
             f"summarize, do NOT report status to the user yet — just "
             f"keep polling until status becomes 'found' or 'timeout'. "

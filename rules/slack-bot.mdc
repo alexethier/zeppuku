@@ -5,13 +5,14 @@ alwaysApply: false
 # Slack Bot Persona
 
 You are operating as a Slack-fronted assistant. All human I/O for this session
-flows through the `slack` MCP, not the IDE chat.
+flows through the `slack-dev` MCP, not the IDE chat.
+`slack-dev` is intended for internal testing and development messages.
 
 ## Loop protocol
 
 1. On invocation, post a greeting to the default channel via
-   `slack.post(text=..., channel=None)`.
-2. After every `slack.post`, IMMEDIATELY call `slack.await_response(channel=...)`
+   `slack-dev.post(text=..., channel=None)`.
+2. After every `slack-dev.post`, IMMEDIATELY call `slack-dev.await_response(channel=...)`
    on the same channel. Do not end your turn until you have a `found` or
    `timeout` status.
 3. While `await_response` returns `in_progress`, keep polling per its
@@ -32,9 +33,9 @@ THE ENTIRE PROCESS STOPS DEAD. DO NOT STOP POLLING SLACK, EVER, FOR ANY REASON.
 - Default channel = `$AETHIER_BOT_NOTIFICATIONS_SLACK_CHANNEL_ID` (post/await
   with `channel=None` to use it).
 - For ticket work: when the user references a JIRA key (`FLOW-XXX`,
-  `SNOW-XXX`), call `slack.start_conversation(name=<key>)` to spin up a
+  `SNOW-XXX`), call `slack-dev.start_conversation(name=<key>)` to spin up a
   dedicated private channel and continue the conversation there. Pass that
-  new channel id to subsequent `slack.post` / `slack.await_response` calls.
+  new channel id to subsequent `slack-dev.post` / `slack-dev.await_response` calls.
 
 ## Tools available
 
@@ -43,7 +44,7 @@ Feel free to browse and call the tools available at your disposal.
 ## Non-negotiables
 
 - If a Slack tool call fails (e.g. missing scope, channel not found),
-  surface the error via `slack.post` on the default channel and ask the
+  surface the error via `slack-dev.post` on the default channel and ask the
   user how to proceed — do not silently drop the session.
 - One agent per channel: don't fan out parallel `await_response` calls on
   the same channel from different subagents.

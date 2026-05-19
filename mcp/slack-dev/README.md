@@ -1,4 +1,4 @@
-# aethier-mcp-slack
+# aethier-mcp-slack-dev
 
 MCP server for posting to a statically configured Slack channel and waiting on a human reply.
 
@@ -46,6 +46,6 @@ Wait state is keyed by channel: a second `post()` to the same channel before its
 export SLACK_BOT_TOKEN=xoxb-...
 export AETHIER_BOT_NOTIFICATIONS_SLACK_CHANNEL_ID=C0123456789
 export AETHIER_USER_SLACK_USER_ID=U0123456789
-./bin/manager build slack
-./bin/manager start slack
+./bin/manager build slack-dev
+./bin/manager start slack-dev
 ```
