@@ -86,12 +86,33 @@ assign_port() {
 BASE_IMAGE="aethier-mcp-base"
 BASE_DOCKERFILE="$WORKSPACE_DIR/Dockerfile.base"
 
+# Create a temporary docker build context where symlinks are dereferenced.
+# This keeps repo-level symlinks (e.g. Dockerfile.base or packages/*) working
+# with docker build, which cannot always read files outside the context root.
+prepare_build_context() {
+    local ctx
+    ctx="$(mktemp -d "${TMPDIR:-/tmp}/aethier-mcp-build.XXXXXX")"
+
+    # Copy the workspace with symlink targets materialized as regular files.
+    # Exclude heavyweight/transient dirs that are never needed for builds.
+    tar -C "$WORKSPACE_DIR" \
+        --exclude='.git' \
+        --exclude='.venv' \
+        --exclude='dump' \
+        --exclude='terminals' \
+        -chf - . | tar -C "$ctx" -xf -
+    echo "$ctx"
+}
+
 # Build (or refresh) the shared base image. Cheap when nothing under
 # packages/aethier-mcp-core/ has changed (Docker hits its layer cache);
 # rebuilds the heavy core layer only when core actually changed.
 cmd_build_base() {
     log "building $BASE_IMAGE (cache: yes)"
-    docker build -f "$BASE_DOCKERFILE" -t "$BASE_IMAGE" "$WORKSPACE_DIR"
+    local ctx
+    ctx="$(prepare_build_context)"
+    trap 'rm -rf "$ctx"' RETURN
+    docker build -f "$ctx/Dockerfile.base" -t "$BASE_IMAGE" "$ctx"
 }
 
 cmd_build() {
@@ -100,7 +121,10 @@ cmd_build() {
     local image; image="$(image_name "$name")"
     cmd_build_base
     log "building $image"
-    docker build -f "$MCP_DIR/$name/Dockerfile" -t "$image" "$WORKSPACE_DIR"
+    local ctx
+    ctx="$(prepare_build_context)"
+    trap 'rm -rf "$ctx"' RETURN
+    docker build -f "$ctx/mcp/$name/Dockerfile" -t "$image" "$ctx"
 }
 
 cmd_start() {
