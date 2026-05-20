@@ -45,7 +45,7 @@ class ValidatorsTest(unittest.TestCase):
     def test_validate_transition_places_in_depth_after_implementation_accepted(self) -> None:
         validate_transition("implementation:accepted", "in_depth_review:accepted")
         validate_transition("implementation:accepted", "in_depth_review:denied")
-        validate_transition("in_depth_review:accepted", "smoke_test_plan:drafted")
+        validate_transition("in_depth_review:accepted", "smoke_test_runbook:drafted")
         validate_transition("in_depth_review:denied", "implemented")
 
     def test_validate_transition_repeated_test_moves_to_jenkins(self) -> None:
@@ -67,7 +67,7 @@ class ValidatorsTest(unittest.TestCase):
         )
 
     def test_validate_transition_requires_instrumentation_before_tested(self) -> None:
-        validate_transition("smoke_test_plan:accepted", "instrumentation_added")
+        validate_transition("smoke_test_runbook:accepted", "instrumentation_added")
         validate_transition("instrumentation_added", "test_plan_with_instrumentation_added")
         validate_transition("test_plan_with_instrumentation_added", "tested:instrumentation")
 

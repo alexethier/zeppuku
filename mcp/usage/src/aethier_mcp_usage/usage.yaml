@@ -136,9 +136,9 @@ create_workflow: 'create_workflow(workflow_id, initial_state)
 
   in_depth_review:accepted, in_depth_review:denied, implementation:denied,
 
-  smoke_test_plan:drafted, smoke_test_plan:accepted,
+  smoke_test_runbook:drafted, smoke_test_runbook:accepted,
 
-  smoke_test_plan:denied, instrumentation_added,
+  smoke_test_runbook:denied, instrumentation_added,
 
   test_plan_with_instrumentation_added, tested:instrumentation,
 
@@ -199,17 +199,17 @@ transition_workflow: 'transition_workflow(workflow_id, to_state)
 
   implementation:accepted -> in_depth_review:accepted|in_depth_review:denied
 
-  in_depth_review:accepted -> smoke_test_plan:drafted
+  in_depth_review:accepted -> smoke_test_runbook:drafted
 
   in_depth_review:denied -> implemented
 
   implementation:denied -> implemented
 
-  smoke_test_plan:drafted -> smoke_test_plan:accepted|smoke_test_plan:denied
+  smoke_test_runbook:drafted -> smoke_test_runbook:accepted|smoke_test_runbook:denied
 
-  smoke_test_plan:denied -> smoke_test_plan:drafted
+  smoke_test_runbook:denied -> smoke_test_runbook:drafted
 
-  smoke_test_plan:accepted -> instrumentation_added
+  smoke_test_runbook:accepted -> instrumentation_added
 
   instrumentation_added -> test_plan_with_instrumentation_added
 

@@ -27,9 +27,9 @@ Allowed states:
 - `implementation:denied`
 - `in_depth_review:accepted`
 - `in_depth_review:denied`
-- `smoke_test_plan:drafted`
-- `smoke_test_plan:accepted`
-- `smoke_test_plan:denied`
+- `smoke_test_runbook:drafted`
+- `smoke_test_runbook:accepted`
+- `smoke_test_runbook:denied`
 - `instrumentation_added`
 - `test_plan_with_instrumentation_added`
 - `tested:instrumentation`

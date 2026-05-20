@@ -108,9 +108,9 @@ class WorkflowStateServiceTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await service.transition("FLOW-105", "backlog")
 
-    async def test_smoke_test_plan_accepted_requires_instrumentation_state(self) -> None:
+    async def test_smoke_test_runbook_accepted_requires_instrumentation_state(self) -> None:
         service = WorkflowStateService(repo=_FakeRepo())
-        await service.create_workflow("FLOW-105A", "smoke_test_plan:accepted")
+        await service.create_workflow("FLOW-105A", "smoke_test_runbook:accepted")
 
         await service.transition("FLOW-105A", "instrumentation_added")
         await service.transition("FLOW-105A", "test_plan_with_instrumentation_added")

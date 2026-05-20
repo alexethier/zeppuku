@@ -9,7 +9,7 @@ Use the `workflow-state` MCP to track feature development state for Jira tasks.
 
 It stores exactly one current state per `workflow_id` in a CSV snapshot.
 
-When you need state-specific execution behavior, read `state-agent-guidance.md` in this same directory. Do not assume it is preloaded; consult it explicitly only after this skill is loaded and the current state is known.
+When you need state-specific execution behavior, read `state-agent-guidance.md` (/Users/aethier/playground/the_source/personal/zeppuku/skills/use-workflow-state/state-agent-guidance.md). Do not assume it is preloaded; consult it explicitly only after this skill is loaded and the current state is known.
 
 ## When to use this
 
@@ -46,9 +46,9 @@ Use this skill when the user asks to:
 - `implementation:denied`
 - `in_depth_review:accepted`
 - `in_depth_review:denied`
-- `smoke_test_plan:drafted`
-- `smoke_test_plan:accepted`
-- `smoke_test_plan:denied`
+- `smoke_test_runbook:drafted`
+- `smoke_test_runbook:accepted`
+- `smoke_test_runbook:denied`
 - `instrumentation_added`
 - `test_plan_with_instrumentation_added`
 - `tested:instrumentation`
@@ -70,13 +70,13 @@ Use this skill when the user asks to:
 - `implementation_plan:denied`: The implementation plan was rejected and must be revised.
 - `implemented`: Code changes have been made and are ready for implementation review.
 - `implementation:accepted`: The implementation itself is approved and test planning can begin.
-- `in_depth_review:accepted`: In-depth review passed and smoke-test planning can begin.
+- `in_depth_review:accepted`: In-depth review passed and smoke-test runbook drafting can begin.
 - `in_depth_review:denied`: In-depth review failed and implementation changes are required before re-review.
 - `implementation:denied`: The implementation review failed and code changes are required.
-- `smoke_test_plan:drafted`: A smoke-test plan is being drafted and not yet approved.
-- `smoke_test_plan:accepted`: The smoke-test plan is approved and instrumentation update can proceed.
-- `smoke_test_plan:denied`: The smoke-test plan was rejected and needs updates.
-- `instrumentation_added`: Required instrumentation has been added after smoke-test plan approval.
+- `smoke_test_runbook:drafted`: A smoke-test runbook is being drafted and not yet approved.
+- `smoke_test_runbook:accepted`: The smoke-test runbook is approved and instrumentation update can proceed.
+- `smoke_test_runbook:denied`: The smoke-test runbook was rejected and needs updates.
+- `instrumentation_added`: Required instrumentation has been added after smoke-test runbook approval.
 - `test_plan_with_instrumentation_added`: The test plan has been updated with instrumentation and is ready for execution.
 - `tested:instrumentation`: Tests were executed with instrumentation according to the accepted plan.
 - `tested:instrumentation:repeated:accepted`: Repeated instrumented testing passed and can proceed to Jenkins success validation.
@@ -97,12 +97,12 @@ Use this skill when the user asks to:
 - `implementation_plan:denied -> implementation_plan:drafted`
 - `implemented -> implementation:accepted|implementation:denied`
 - `implementation:accepted -> in_depth_review:accepted|in_depth_review:denied`
-- `in_depth_review:accepted -> smoke_test_plan:drafted`
+- `in_depth_review:accepted -> smoke_test_runbook:drafted`
 - `in_depth_review:denied -> implemented`
 - `implementation:denied -> implemented`
-- `smoke_test_plan:drafted -> smoke_test_plan:accepted|smoke_test_plan:denied`
-- `smoke_test_plan:denied -> smoke_test_plan:drafted`
-- `smoke_test_plan:accepted -> instrumentation_added`
+- `smoke_test_runbook:drafted -> smoke_test_runbook:accepted|smoke_test_runbook:denied`
+- `smoke_test_runbook:denied -> smoke_test_runbook:drafted`
+- `smoke_test_runbook:accepted -> instrumentation_added`
 - `instrumentation_added -> test_plan_with_instrumentation_added`
 - `test_plan_with_instrumentation_added -> tested:instrumentation`
 - `tested:instrumentation -> tested:instrumentation:repeated:accepted|tested:instrumentation:repeated:denied`
@@ -119,7 +119,7 @@ Use this skill when the user asks to:
 ## Practical conventions
 
 - Keep `workflow_id` stable for the life of the task (for example, a Jira key).
-- Keep state values canonical and explicit (for example, `backlog`, `implementation_plan:drafted`, `smoke_test_plan:accepted`).
+- Keep state values canonical and explicit (for example, `backlog`, `implementation_plan:drafted`, `smoke_test_runbook:accepted`).
 - Prefer reading current state with `get_workflow` before transitioning when context is uncertain.
 
 ## Call patterns
