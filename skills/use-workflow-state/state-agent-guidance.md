@@ -82,6 +82,8 @@ This state means instrumentation has been added, add a new test plan that includ
 - **Target next state:** `test_plan_with_instrumentation_added`.
 - Verify instrumentation wiring, signal quality, and execution safety.
 - Add a new test plan instrumentation file that covers the extra instrumentation things to check. This is a separate file from the smoke test plan, the main smoke test plan can reference it.
+- Post to `ai-datastore.upsert_note` any new instrumentation classes added. Example file-based command:
+  `./bin/mcp ai-datastore call upsert_note workflow_id="<workflow_id>" note_description="New instrumentation class" labels='["artifact:instrumentation","phase:testing"]' name="instrumentation-class" filename_hint="temp-it-class" file_path="/absolute/path/to/NewInstrumentationClass.java"`
 
 ### `test_plan_with_instrumentation_added`
 This state means the executable test plan now includes details where instrumentation is checked.
@@ -93,8 +95,12 @@ This state means the executable test plan now includes details where instrumenta
 ### `tested:instrumentation`
 This state means instrumented test execution completed for the current cycle.
 - **Target next states:** `tested:instrumentation:repeated:accepted` or `tested:instrumentation:repeated:denied`.
-- Have a different external AI model re-run the test to perform an independent and unbiased verification.
+- Have a different external AI model re-run the test to perform an independent and unbiased verification. The AI model should run as a strict gatekeeper role
 - Transition directly to accepted/denied based on repeated test outcome.
+- It is imperative the other AI model posts any logs to ai-datastore. Example commands:
+  - File-based logs: `./bin/mcp ai-datastore call upsert_note workflow_id="<workflow_id>" note_description="Independent model test logs" labels='["artifact:test_logs","phase:testing","source:independent_model"]' name="independent-model-logs" filename_hint="retest-log" file_path="/absolute/path/to/retest.log"`
+  - Inline logs: `./bin/mcp ai-datastore call upsert_note workflow_id="<workflow_id>" note_description="Independent model test logs" labels='["artifact:test_logs","phase:testing","source:independent_model"]' name="independent-model-logs" filename_hint="retest-log" content="<log text or summary>"`
+  - Final decision (required): `./bin/mcp ai-datastore call upsert_note workflow_id="<workflow_id>" note_description="Independent model final test verdict (pass/fail + ready/not-ready)" labels='["artifact:test_verdict","phase:testing","source:independent_model"]' name="independent-model-final-verdict" filename_hint="ready-check" content="Result: PASS|FAIL. Ready: YES|NO. Rationale: <brief reason>"`
 
 ### `tested:instrumentation:repeated:accepted`
 This state means repeated instrumented testing was accepted.
@@ -103,7 +109,9 @@ This state means repeated instrumented testing was accepted.
 - Run a full clean build of code, full builds take a very long time, recommend running it as bg and poll the results.
 - Fix any code issues reported from the build, then commit. 
 - Fetch origin/main and rebase it onto the feature branch so we get latest updates from main. Fix any conflicts.
-- Push the branch, this will trigger a Jenkins build
+- Push the branch, 
+- If no PR for this branch exists create a new draft PR. Check if a pr already exists for the branch.
+- A jenkins build will be triggered in response to the commit and pr creation, wait a few seconds for it to launch
 - Validate Jenkins status with `jenkins.get_job_status(name=<job_name>)` and, for a specific run, `jenkins.await_run(name=<job_name>, build_number=<build_number>)`.
 - If needed for diagnostics before transitioning, read logs via `jenkins.console(name=<job_name>, build=<build_number>, tail=500)`.
 - If the jenkins build fails, transition to jenkins_build:failure
