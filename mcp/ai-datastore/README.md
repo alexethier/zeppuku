@@ -11,7 +11,8 @@ Agent-facing datastore MCP for workflow notes.
   - `delete_note(...)`
   - `delete_label(...)` with immediate garbage collection of unlabeled notes
   - `get_labels(workspace_id=None)` for unique labels (scoped or global)
-  - `search_notes(...)` using nested boolean label DSL
+  - `search_notes_by_label(...)` using nested boolean label DSL (optional workflow scope)
+  - `search_notes_by_workflow_id(...)` for full listing in one workflow
 
 This MCP uses the host bridge for file and CSV-backed metadata operations so data lives on
 the host filesystem.
@@ -29,10 +30,12 @@ Optionally pass `filename_hint` to append a suffix:
 ./bin/manager start ai-datastore
 ```
 
-## search_notes DSL
+## search_notes_by_label DSL
 
-`search_notes` accepts a JSON `query` object with nested operators:
+`search_notes_by_label` accepts a JSON `query` object with nested operators
+and optional `workflow_id`:
 
+- `{}`
 - `{"label":"critical"}`
 - `{"and":[{"label":"backend"},{"label":"urgent"}]}`
 - `{"or":[{"label":"backend"},{"not":{"label":"deprecated"}}]}`
@@ -41,8 +44,18 @@ Optionally pass `filename_hint` to append a suffix:
 Example call:
 
 ```bash
-./bin/mcp ai-datastore call search_notes \
+./bin/mcp ai-datastore call search_notes_by_label \
+  workflow_id='FLOW-1234' \
   query='{"and":[{"label":"backend"},{"not":{"in":["wip","blocked"]}}]}'
+```
+
+## search_notes_by_workflow_id
+
+List all notes in one workflow (same output shape as label search):
+
+```bash
+./bin/mcp ai-datastore call search_notes_by_workflow_id \
+  workflow_id='FLOW-1234'
 ```
 
 Return shape:

@@ -1,10 +1,8 @@
 """Repository layer for ai-datastore csvq metadata."""
 from __future__ import annotations
 
-from pathlib import PurePosixPath
-
 from . import db
-from .models import NoteRecord
+from .models import NoteRecord, SearchNoteMatch
 from .search_dsl import LabelExpr, evaluate_expr, extract_labels
 
 
@@ -174,25 +172,17 @@ async def prune_unreferenced_labels() -> int:
     return 0
 
 
-def _matches_glob(rel_path: str, glob_pattern: str) -> bool:
-    # `PurePosixPath.match` matches from the right for simple names and supports
-    # `**` for recursive patterns, which fits this datastore's rel paths.
-    return PurePosixPath(rel_path).match(glob_pattern)
-
-
 async def search_note_identifiers(
-    expr: LabelExpr,
-    *,
     workflow_id: str | None,
-    glob_pattern: str,
+    *,
+    expr: LabelExpr | None,
     limit: int,
     offset: int,
-) -> list[dict]:
+) -> list[SearchNoteMatch]:
     """Evaluate a normalized label expression and return note identifiers + labels."""
     where = ""
     if workflow_id is not None:
         where = f"WHERE workflow_id = {db.sql_literal(workflow_id)}"
-
     scope_rows = await db.query(
         f"""
         SELECT workflow_id, note_id, rel_path
@@ -201,36 +191,35 @@ async def search_note_identifiers(
         ORDER BY workflow_id, note_id
         """,
     )
-    scoped_rows = [r for r in scope_rows if _matches_glob(str(r["rel_path"]), glob_pattern)]
-    if not scoped_rows:
+    if not scope_rows:
         return []
 
-    universe_keys = {(str(r["workflow_id"]), str(r["note_id"])) for r in scoped_rows}
+    universe_keys = {(str(r["workflow_id"]), str(r["note_id"])) for r in scope_rows}
     ordered_keys = [
         (str(r["workflow_id"]), str(r["note_id"]))
-        for r in scoped_rows
+        for r in scope_rows
     ]
     row_by_key = {
-        (str(r["workflow_id"]), str(r["note_id"])): r for r in scoped_rows
+        (str(r["workflow_id"]), str(r["note_id"])): r for r in scope_rows
     }
 
-    labels = sorted(extract_labels(expr))
-    if not labels:
-        return []
+    if expr is None:
+        matched_keys = universe_keys
+    else:
+        labels = sorted(extract_labels(expr))
+        label_hits: dict[str, set[tuple[str, str]]] = {name: set() for name in labels}
+        for label in labels:
+            label_rows = await db.query(
+                "SELECT workflow_id, note_id "
+                f"FROM {db.NOTE_LABELS_TABLE} "
+                f"WHERE label = {db.sql_literal(label)}"
+            )
+            for row in label_rows:
+                key = (str(row["workflow_id"]), str(row["note_id"]))
+                if key in universe_keys:
+                    label_hits[label].add(key)
 
-    label_hits: dict[str, set[tuple[str, str]]] = {name: set() for name in labels}
-    for label in labels:
-        label_rows = await db.query(
-            "SELECT workflow_id, note_id "
-            f"FROM {db.NOTE_LABELS_TABLE} "
-            f"WHERE label = {db.sql_literal(label)}"
-        )
-        for row in label_rows:
-            key = (str(row["workflow_id"]), str(row["note_id"]))
-            if key in universe_keys:
-                label_hits[label].add(key)
-
-    matched_keys = evaluate_expr(expr, label_hits=label_hits, universe=universe_keys)
+        matched_keys = evaluate_expr(expr, label_hits=label_hits, universe=universe_keys)
     ordered_match_keys = [key for key in ordered_keys if key in matched_keys]
     sliced_keys = ordered_match_keys[offset : offset + limit]
     if not sliced_keys:

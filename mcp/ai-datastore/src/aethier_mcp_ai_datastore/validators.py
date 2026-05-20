@@ -144,19 +144,6 @@ def validate_optional_workflow_id(workflow_id: str | None) -> str | None:
     return validate_workflow_id(workflow_id)
 
 
-def validate_glob_pattern(glob: str) -> str:
-    glob = glob.strip()
-    if not glob:
-        raise ValueError("glob must be non-empty")
-    if glob.startswith("/"):
-        raise ValueError("glob must be a relative pattern")
-    if ".." in glob.split("/"):
-        raise ValueError("glob must not include '..' traversal")
-    if len(glob) > 500:
-        raise ValueError("glob is too long (max 500 chars)")
-    return glob
-
-
 def validate_limit_offset(limit: int, offset: int) -> tuple[int, int]:
     if not isinstance(limit, int) or not (1 <= limit <= 1000):
         raise ValueError(f"invalid limit {limit!r}: must be integer 1..1000")

@@ -70,29 +70,30 @@ async def get_labels(workspace_id: str | None = None) -> dict:
 
 
 @mcp.tool()
-async def search_notes(
+async def search_notes_by_label(
     query: dict,
     workflow_id: str | None = None,
-    glob: str = "**/*",
     limit: int = 200,
     offset: int = 0,
 ) -> dict:
-    """Search notes by nested label DSL.
-
-    Query operators:
-    - {"label": "foo"}
-    - {"and": [expr, ...]}
-    - {"or": [expr, ...]}
-    - {"not": expr}
-    - {"in": ["foo", "bar"]}  # sugar lowered to OR
-
-    Returns matches with attached labels:
-    {"matches": [{"workflow_id": "...", "note_id": "...", "labels": ["..."]}, ...]}
-    """
-    return await svc.search_notes(
+    """Search notes by label DSL. Call usage('search_notes_by_label')."""
+    return await svc.search_notes_by_label(
         query=query,
         workflow_id=workflow_id,
-        glob=glob,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@mcp.tool()
+async def search_notes_by_workflow_id(
+    workflow_id: str,
+    limit: int = 200,
+    offset: int = 0,
+) -> dict:
+    """List all notes in one workflow. Call usage('search_notes_by_workflow_id')."""
+    return await svc.search_notes_by_workflow_id(
+        workflow_id=workflow_id,
         limit=limit,
         offset=offset,
     )

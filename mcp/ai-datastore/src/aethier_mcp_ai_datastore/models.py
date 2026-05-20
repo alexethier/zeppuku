@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TypedDict
 
 
 @dataclass(frozen=True)
@@ -33,3 +34,13 @@ class NoteRecord:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
+
+
+class SearchNoteMatch(TypedDict):
+    workflow_id: str
+    note_id: str
+    labels: list[str]
+
+
+class SearchNotesResponse(TypedDict):
+    matches: list[SearchNoteMatch]

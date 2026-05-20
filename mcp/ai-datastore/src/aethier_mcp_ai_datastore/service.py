@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from . import filesystem, repository, validators
+from .models import SearchNotesResponse
 from .search_dsl import normalize_query
 
 
@@ -186,25 +187,50 @@ class DatastoreService:
             "labels": labels,
         }
 
-    async def search_notes(
+    async def _search_notes(
         self,
-        query: dict,
-        *,
-        workflow_id: str | None = None,
-        glob: str = "**/*",
+        workflow_id: str | None,
+        query: dict | None,
         limit: int = 200,
         offset: int = 0,
-    ) -> dict:
+    ) -> SearchNotesResponse:
         await self._ensure_ready()
         wf = validators.validate_optional_workflow_id(workflow_id)
-        glob = validators.validate_glob_pattern(glob)
         limit, offset = validators.validate_limit_offset(limit, offset)
-        normalized = normalize_query(query)
+        normalized = normalize_query(query) if query is not None else None
         matches = await repository.search_note_identifiers(
-            normalized,
             workflow_id=wf,
-            glob_pattern=glob,
+            expr=normalized,
             limit=limit,
             offset=offset,
         )
         return {"matches": matches}
+
+    async def search_notes_by_label(
+        self,
+        workflow_id: str | None,
+        query: dict,
+        *,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> SearchNotesResponse:
+        return await self._search_notes(
+            workflow_id=workflow_id,
+            query=query,
+            limit=limit,
+            offset=offset,
+        )
+
+    async def search_notes_by_workflow_id(
+        self,
+        workflow_id: str,
+        *,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> SearchNotesResponse:
+        return await self._search_notes(
+            workflow_id=workflow_id,
+            query=None,
+            limit=limit,
+            offset=offset,
+        )

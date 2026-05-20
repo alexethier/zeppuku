@@ -252,3 +252,36 @@ delete_workflow: 'delete_workflow(workflow_id)
   Raises if workflow_id does not exist.
 
   '
+search_notes_by_label: 'search_notes_by_label(query, workflow_id=None, limit=200, offset=0)
+
+
+  Search notes by nested label DSL.
+
+  Query operators:
+  - {}                      # match all notes in scope
+  - {"label": "foo"}
+  - {"and": [expr, ...]}
+  - {"or": [expr, ...]}
+  - {"not": expr}
+  - {"in": ["foo", "bar"]}  # sugar lowered to OR
+
+  Optional `workflow_id` narrows to one workflow; omit it to search all workflows.
+  `limit` / `offset` are pagination controls
+  (default 200 / 0).
+
+  Returns:
+  {"matches": [{"workflow_id": "...", "note_id": "...", "labels": ["..."]}, ...]}
+
+  '
+search_notes_by_workflow_id: 'search_notes_by_workflow_id(workflow_id, limit=200, offset=0)
+
+
+  List all notes in one required workflow.
+
+  `workflow_id` is required. `limit` / `offset` are pagination controls
+  (default 200 / 0).
+
+  Returns:
+  {"matches": [{"workflow_id": "...", "note_id": "...", "labels": ["..."]}, ...]}
+
+  '

@@ -1,6 +1,7 @@
-"""JSON-AST label DSL for search_notes.
+"""JSON-AST label DSL for search_notes_by_label.
 
 Supported operators:
+- {}                      # match all notes in scope
 - {"label": "foo"}
 - {"and": [expr, ...]}
 - {"or": [expr, ...]}
@@ -40,6 +41,9 @@ def _normalize_node(
 
     if not isinstance(node, dict):
         raise ValueError("query expression must be an object")
+    if not node:
+        # Empty query means "match everything in scope".
+        return {"all": True}
     if len(node) != 1:
         raise ValueError("query expression must contain exactly one operator key")
 
@@ -85,6 +89,8 @@ def _normalize_node(
 
 def extract_labels(expr: LabelExpr) -> set[str]:
     """Return all label literals referenced by the normalized expression."""
+    if "all" in expr:
+        return set()
     if "label" in expr:
         return {str(expr["label"])}
     if "and" in expr:
@@ -109,6 +115,8 @@ def evaluate_expr(
     universe: set[KeyT],
 ) -> set[KeyT]:
     """Evaluate a normalized AST into matching note-row-id set."""
+    if "all" in expr:
+        return set(universe)
     if "label" in expr:
         return set(label_hits.get(str(expr["label"]), set()))
     if "and" in expr:
