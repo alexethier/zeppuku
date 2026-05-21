@@ -111,8 +111,11 @@ cmd_build_base() {
     log "building $BASE_IMAGE (cache: yes)"
     local ctx
     ctx="$(prepare_build_context)"
-    trap 'rm -rf "$ctx"' RETURN
-    docker build -f "$ctx/Dockerfile.base" -t "$BASE_IMAGE" "$ctx"
+    if ! docker build -f "$ctx/Dockerfile.base" -t "$BASE_IMAGE" "$ctx"; then
+        rm -rf "$ctx"
+        return 1
+    fi
+    rm -rf "$ctx"
 }
 
 cmd_build() {
@@ -123,8 +126,11 @@ cmd_build() {
     log "building $image"
     local ctx
     ctx="$(prepare_build_context)"
-    trap 'rm -rf "$ctx"' RETURN
-    docker build -f "$ctx/mcp/$name/Dockerfile" -t "$image" "$ctx"
+    if ! docker build -f "$ctx/mcp/$name/Dockerfile" -t "$image" "$ctx"; then
+        rm -rf "$ctx"
+        return 1
+    fi
+    rm -rf "$ctx"
 }
 
 cmd_start() {
@@ -150,8 +156,11 @@ cmd_start() {
     local port; port="$(assign_port "$name")"
 
     # Forward configured env vars from this shell into the container so MCPs
-    # Load latest env vars in user's bash profile.
-    source "$HOME/.bash_profile" 2>/dev/null || true
+    # load latest env vars in user's bash profile. Some profiles reference
+    # unset vars; temporarily disable nounset so manager restart doesn't abort.
+    set +u
+    source "$HOME/.bash_profile" >/dev/null 2>&1 || true
+    set -u
     local env_args=()
     local var
     for var in "${MCP_ENV_PASSTHROUGH[@]}"; do

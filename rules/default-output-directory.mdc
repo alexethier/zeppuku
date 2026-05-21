@@ -1,0 +1,8 @@
+---
+description: Default output directory for files when no path is specified
+alwaysApply: true
+---
+
+# Default Output Directory
+
+When the user asks to output, write, or save a file without specifying a directory, default to `~/playground/dump`.
