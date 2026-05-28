@@ -103,6 +103,8 @@
       "Shell(git -C * status)",
       "Shell(git -C * tag *)",
       "Shell(git -C * tag)",
+      "Shell(git -C * worktree *)",
+      "Shell(git -C * worktree)",
       "Shell(git bisect *)",
       "Shell(git bisect)",
       "Shell(git blame *)",

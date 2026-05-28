@@ -30,6 +30,8 @@
       "Bash(git -C * status)",
       "Bash(git -C * tag *)",
       "Bash(git -C * tag)",
+      "Bash(git -C * worktree *)",
+      "Bash(git -C * worktree)",
       "Bash(git add *)",
       "Bash(jar tf *)",
       "Bash(jar xf *)",
