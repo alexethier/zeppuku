@@ -1,0 +1,363 @@
+{
+  "permissions": {
+    "allow": [
+      "Mcp(*:*)",
+      "Shell(./fix-byoc-bool-vars.sh)",
+      "Shell(./mvnw)",
+      "Shell(./yetis_helper.sh)",
+      "Shell(/Users/aethier/playground/the_source/snowflake/aethier-oflowctl/bin/oflowctl)",
+      "Shell(/Users/aethier/playground/the_source/snowflake/aethier-scripts/bin/oflow-images)",
+      "Shell(/Users/aethier/playground/the_source/snowflake/aethier-scripts/bin/zoflow-images)",
+      "Shell(/Users/aethier/playground/the_source/snowflake/aethier-scripts/fix-byoc-bool-vars.sh)",
+      "Shell(/Users/aethier/playground/the_source/snowflake/openflow-utils/som-utils/force_drop_entity.sh)",
+      "Shell(alias)",
+      "Shell(awk *)",
+      "Shell(aws *)",
+      "Shell(aws)",
+      "Shell(basename *)",
+      "Shell(bash -n)",
+      "Shell(bash scripts/download-proto.sh)",
+      "Shell(bat *)",
+      "Shell(break)",
+      "Shell(cat *)",
+      "Shell(cat)",
+      "Shell(cd)",
+      "Shell(check_worktree)",
+      "Shell(column *)",
+      "Shell(comm *)",
+      "Shell(control_plane_ctl)",
+      "Shell(cp *)",
+      "Shell(cp)",
+      "Shell(curl)",
+      "Shell(cursor)",
+      "Shell(cursor-agent)",
+      "Shell(cut *)",
+      "Shell(date *)",
+      "Shell(date)",
+      "Shell(df *)",
+      "Shell(diff *)",
+      "Shell(dirname *)",
+      "Shell(du *)",
+      "Shell(echo *)",
+      "Shell(echo)",
+      "Shell(env *)",
+      "Shell(env)",
+      "Shell(file *)",
+      "Shell(find *)",
+      "Shell(find)",
+      "Shell(force_drop_entity.sh *)",
+      "Shell(force_drop_entity.sh)",
+      "Shell(gh api *)",
+      "Shell(gh api)",
+      "Shell(gh issue list *)",
+      "Shell(gh issue list)",
+      "Shell(gh issue status *)",
+      "Shell(gh issue status)",
+      "Shell(gh issue view *)",
+      "Shell(gh issue view)",
+      "Shell(gh pr checks *)",
+      "Shell(gh pr checks)",
+      "Shell(gh pr diff *)",
+      "Shell(gh pr diff)",
+      "Shell(gh pr list *)",
+      "Shell(gh pr list)",
+      "Shell(gh pr status *)",
+      "Shell(gh pr status)",
+      "Shell(gh pr view *)",
+      "Shell(gh pr view)",
+      "Shell(gh release list *)",
+      "Shell(gh release list)",
+      "Shell(gh release view *)",
+      "Shell(gh release view)",
+      "Shell(gh repo list *)",
+      "Shell(gh repo list)",
+      "Shell(gh repo view *)",
+      "Shell(gh repo view)",
+      "Shell(gh run list *)",
+      "Shell(gh run list)",
+      "Shell(gh run view *)",
+      "Shell(gh run view)",
+      "Shell(gh search *)",
+      "Shell(gh search)",
+      "Shell(git add)",
+      "Shell(git bisect *)",
+      "Shell(git bisect)",
+      "Shell(git blame *)",
+      "Shell(git blame)",
+      "Shell(git branch *)",
+      "Shell(git branch)",
+      "Shell(git checkout *)",
+      "Shell(git checkout)",
+      "Shell(git clean *)",
+      "Shell(git clean)",
+      "Shell(git commit *)",
+      "Shell(git commit)",
+      "Shell(git config)",
+      "Shell(git diff *)",
+      "Shell(git diff)",
+      "Shell(git fetch *)",
+      "Shell(git fetch)",
+      "Shell(git grep)",
+      "Shell(git log *)",
+      "Shell(git log)",
+      "Shell(git ls-remote)",
+      "Shell(git merge *)",
+      "Shell(git merge)",
+      "Shell(git merge-base)",
+      "Shell(git push)",
+      "Shell(git remote *)",
+      "Shell(git remote)",
+      "Shell(git rev-parse)",
+      "Shell(git show *)",
+      "Shell(git show)",
+      "Shell(git stash list *)",
+      "Shell(git stash list)",
+      "Shell(git status *)",
+      "Shell(git status)",
+      "Shell(git tag *)",
+      "Shell(git tag)",
+      "Shell(git worktree *)",
+      "Shell(git worktree)",
+      "Shell(grep *)",
+      "Shell(grep)",
+      "Shell(head *)",
+      "Shell(head)",
+      "Shell(hostname)",
+      "Shell(id)",
+      "Shell(jar)",
+      "Shell(javap)",
+      "Shell(jq *)",
+      "Shell(kubectl)",
+      "Shell(kubectl *)",
+      "Shell(less *)",
+      "Shell(ll *)",
+      "Shell(ll)",
+      "Shell(ls *)",
+      "Shell(ls)",
+      "Shell(lsof)",
+      "Shell(maven-auth)",
+      "Shell(mdfind)",
+      "Shell(mkdir *)",
+      "Shell(mkdir)",
+      "Shell(mvn *)",
+      "Shell(mvn)",
+      "Shell(mvn-or-mvnw *)",
+      "Shell(mvn-or-mvnw)",
+      "Shell(nohup *)",
+      "Shell(nohup)",
+      "Shell(od *)",
+      "Shell(oflowctl *)",
+      "Shell(oflowctl)",
+      "Shell(kill -0 *)",
+      "Shell(pgrep *)",
+      "Shell(pgrep)",
+      "Shell(printenv *)",
+      "Shell(printenv)",
+      "Shell(ps *)",
+      "Shell(ps)",
+      "Shell(pwd *)",
+      "Shell(pwd)",
+      "Shell(python3 *)",
+      "Shell(python3)",
+      "Shell(read)",
+      "Shell(readlink *)",
+      "Shell(realpath *)",
+      "Shell(return)",
+      "Shell(rg *)",
+      "Shell(rg)",
+      "Shell(scp *)",
+      "Shell(scp)",
+      "Shell(sed *)",
+      "Shell(seq)",
+      "Shell(sf *)",
+      "Shell(sf)",
+      "Shell(sleep *)",
+      "Shell(sleep)",
+      "Shell(snow *)",
+      "Shell(snow)",
+      "Shell(sort *)",
+      "Shell(sort)",
+      "Shell(ssh *)",
+      "Shell(ssh)",
+      "Shell(stat *)",
+      "Shell(strings *)",
+      "Shell(strings)",
+      "Shell(tail *)",
+      "Shell(tail)",
+      "Shell(tee)",
+      "Shell(test)",
+      "Shell(time)",
+      "Shell(tr *)",
+      "Shell(true)",
+      "Shell(type *)",
+      "Shell(uname *)",
+      "Shell(uniq *)",
+      "Shell(uniq)",
+      "Shell(unzip)",
+      "Shell(wait *)",
+      "Shell(wait)",
+      "Shell(wc *)",
+      "Shell(wc)",
+      "Shell(which *)",
+      "Shell(which)",
+      "Shell(whoami)",
+      "Shell(xargs *)",
+      "Shell(xxd *)",
+      "Shell(yes *)",
+      "Shell(yes)",
+      "Shell(yq *)",
+      "WebFetch(github.com)",
+      "Shell(git pull)",
+      "Shell(docker inspect)",
+      "Shell(docker inspect *)",
+      "Shell(docker compose)",
+      "Shell(docker compose *)",
+      "Shell(docker log)",
+      "Shell(docker log *)",
+      "Shell(docker logs)",
+      "Shell(docker logs *)",
+      "Shell(docker compose logs)",
+      "Shell(docker compose logs *)",
+      "Shell(/opt/sf-cli/dist/bin/sf-darwin-arm64)",
+      "Shell(git rebase origin/main)",
+      "Shell(base64)",
+      "Shell(psql)"
+    ],
+    "deny": [
+      "Shell(git -C *)"
+    ]
+  },
+  "version": 1,
+  "editor": {
+    "vimMode": false
+  },
+  "notifications": true,
+  "hints": true,
+  "rewind": false,
+  "suggestNextPrompt": false,
+  "model": {
+    "modelId": "claude-opus-4-6",
+    "displayModelId": "claude-opus-4-6",
+    "displayName": "Opus 4.6 (Thinking) 200K High",
+    "displayNameShort": "Opus 4.6 (Thinking) 200K High",
+    "aliases": [],
+    "maxMode": false
+  },
+  "hasChangedDefaultModel": true,
+  "maxMode": false,
+  "modelParameters": {
+    "claude-sonnet-4-6": [
+      {
+        "id": "thinking",
+        "value": "true"
+      },
+      {
+        "id": "context",
+        "value": "200k"
+      },
+      {
+        "id": "effort",
+        "value": "medium"
+      }
+    ],
+    "claude-opus-4-6": [
+      {
+        "id": "thinking",
+        "value": "true"
+      },
+      {
+        "id": "context",
+        "value": "200k"
+      },
+      {
+        "id": "effort",
+        "value": "high"
+      },
+      {
+        "id": "fast",
+        "value": "false"
+      }
+    ],
+    "claude-4.6-opus-high-thinking": [
+      {
+        "id": "context",
+        "value": "200k"
+      }
+    ],
+    "composer-2": [
+      {
+        "id": "fast",
+        "value": "true"
+      }
+    ],
+    "gpt-5.3-codex": [
+      {
+        "id": "reasoning",
+        "value": "medium"
+      },
+      {
+        "id": "fast",
+        "value": "false"
+      }
+    ]
+  },
+  "selectedModel": {
+    "modelId": "claude-opus-4-6",
+    "parameters": [
+      {
+        "id": "thinking",
+        "value": "true"
+      },
+      {
+        "id": "context",
+        "value": "200k"
+      },
+      {
+        "id": "effort",
+        "value": "high"
+      },
+      {
+        "id": "fast",
+        "value": "false"
+      }
+    ]
+  },
+  "privacyCache": {
+    "ghostMode": true,
+    "privacyMode": 2,
+    "updatedAt": 1779912282285
+  },
+  "serverConfigCache": {
+    "backendUrl": "https://api2.cursor.sh",
+    "authCacheKey": "auth:auth0|user_01K1Q359V4X0YH517017WG4XDD",
+    "teamId": 4802593,
+    "agentUrlConfig": {
+      "agentUrl": "https://agentn.us.api5.cursor.sh",
+      "agentnUrl": "https://agentn.us.api5.cursor.sh"
+    },
+    "cliSandboxDefaultEnabled": false,
+    "serverHttp2Config": 0,
+    "updatedAt": 1778701168971
+  },
+  "authInfo": {
+    "email": "alex.ethier@snowflake.com",
+    "displayName": "Alex Ethier",
+    "teamId": 4802593,
+    "teamName": "Snowflake",
+    "userId": 272208479,
+    "authId": "auth0|user_01K1Q359V4X0YH517017WG4XDD"
+  },
+  "network": {
+    "useHttp1ForAgent": false
+  },
+  "approvalMode": "allowlist",
+  "sandbox": {
+    "mode": "disabled",
+    "networkAccess": "user_config_with_defaults"
+  },
+  "runEverythingSettingsPromptStreak": 0,
+  "attribution": {
+    "attributeCommitsToAgent": true,
+    "attributePRsToAgent": true
+  }
+}
