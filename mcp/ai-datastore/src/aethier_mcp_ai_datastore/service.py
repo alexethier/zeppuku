@@ -8,8 +8,42 @@ from .models import SearchNotesResponse
 from .search_dsl import normalize_query
 
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+def _format_utc_date(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _format_updated_utc_timestamp(dt: datetime) -> str:
+    # Keep second-level precision for stable label length and comparisons.
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dt%H:%M:%Sz")
+
+
+def _derive_create_date_utc(existing_created_at: str | None, now_utc: datetime) -> str:
+    if not existing_created_at:
+        return _format_utc_date(now_utc)
+    try:
+        parsed = datetime.fromisoformat(existing_created_at.replace("Z", "+00:00"))
+    except ValueError:
+        return _format_utc_date(now_utc)
+    return _format_utc_date(parsed)
+
+
+def _apply_system_utc_labels(
+    labels: list[str],
+    *,
+    create_date_utc: str,
+    updated_date_utc: str,
+) -> list[str]:
+    filtered = [
+        label
+        for label in labels
+        if not (
+            label.startswith("create_date_utc:")
+            or label.startswith("updated_date_utc:")
+        )
+    ]
+    filtered.append(f"create_date_utc:{create_date_utc}")
+    filtered.append(f"updated_date_utc:{updated_date_utc}")
+    return filtered
 
 
 class DatastoreService:
@@ -54,6 +88,19 @@ class DatastoreService:
             nid = validators.validate_note_id(note_id)
             existing = await repository.get_note_by_key(wf, nid)
 
+        now_utc = datetime.now(timezone.utc)
+        create_date_utc = _derive_create_date_utc(
+            existing.created_at if existing is not None else None,
+            now_utc,
+        )
+        updated_date_utc = _format_updated_utc_timestamp(now_utc)
+        now_iso = now_utc.isoformat()
+        effective_labels = _apply_system_utc_labels(
+            normalized_labels,
+            create_date_utc=create_date_utc,
+            updated_date_utc=updated_date_utc,
+        )
+
         source_kind = "content"
         note_content: str
         if content is not None:
@@ -77,8 +124,8 @@ class DatastoreService:
             note_id=nid,
             note_description=description,
             rel_path=rel_path,
-            labels=normalized_labels,
-            now_iso=_now_iso(),
+            labels=effective_labels,
+            now_iso=now_iso,
         )
         return {
             "status": "ok",

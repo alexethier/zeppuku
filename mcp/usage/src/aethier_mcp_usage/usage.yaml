@@ -285,3 +285,18 @@ search_notes_by_workflow_id: 'search_notes_by_workflow_id(workflow_id, limit=200
   {"matches": [{"workflow_id": "...", "note_id": "...", "labels": ["..."]}, ...]}
 
   '
+upsert_note: 'upsert_note(workflow_id, note_description, labels, name, filename_hint=None, note_id=None, content=None, file_path=None)
+
+
+  Create or update a note. Exactly one of `content` or `file_path` is required.
+
+  Automatic UTC system labels are always applied on write:
+  - `create_date_utc:YYYY-MM-DD` (preserved from original creation date)
+  - `updated_date_utc:YYYY-MM-DDtHH:MM:SSz` (refreshed on every upsert)
+
+  If caller supplies `create_date_utc:*` or `updated_date_utc:*`, those values
+  are replaced by the canonical system-generated values above.
+
+  Returns the stored note metadata plus final labels.
+
+  '

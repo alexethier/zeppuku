@@ -23,6 +23,10 @@ then filenames are generated as `<note_id>--<slug(name)>.md`.
 Optionally pass `filename_hint` to append a suffix:
 `<note_id>--<slug(name)>--<slug(filename_hint)>.md`.
 
+On every `upsert_note`, the datastore also injects canonical UTC system labels:
+- `create_date_utc:YYYY-MM-DD` (preserved from original creation date)
+- `updated_date_utc:YYYY-MM-DDtHH:MM:SSz` (refreshed on every update)
+
 ## Run
 
 ```bash
