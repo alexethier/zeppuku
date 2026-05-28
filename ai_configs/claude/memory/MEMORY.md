@@ -1,0 +1,7 @@
+- [Snowhouse: no GROUP BY on KUBERNETES_LOGS_V](feedback_snowhouse_no_group_by.md) — aggregations on the k8s logs table never return; sample with LIMIT + ORDER BY instead
+- [Never run `find` on `~/`](feedback_no_find_home.md) — home dir scans are slow/noisy; ask for the path or constrain to a known subdir
+- [Check squash-merged branches by ticket ID](feedback_branch_merged_check.md) — merge-base --is-ancestor misses squash merges; also grep origin/main log by ticket ID
+- [Repo and worktree locations](reference_worktree_path.md) — repos at `~/playground/the_source/snowflake/<name>`, worktrees at `~/playground/the_source/worktree`
+- [Alex Ethier Slack ID](user_slack_id.md) — Slack user ID U0817T3BYGN; use for "slack me/myself/Alex/Alex Ethier"
+- [Dump directory for one-off scripts](reference_dump_dir.md) — one-off/misc scripts go in `/Users/aethier/playground/dump`
+- [Default file write location](feedback_default_write_location.md) — write files to `/Users/aethier/playground/dump` when no path is specified
