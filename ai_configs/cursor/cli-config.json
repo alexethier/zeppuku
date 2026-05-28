@@ -80,6 +80,29 @@
       "Shell(gh search *)",
       "Shell(gh search)",
       "Shell(git add)",
+      "Shell(git -C * bisect *)",
+      "Shell(git -C * bisect)",
+      "Shell(git -C * blame *)",
+      "Shell(git -C * blame)",
+      "Shell(git -C * branch *)",
+      "Shell(git -C * branch)",
+      "Shell(git -C * diff *)",
+      "Shell(git -C * diff)",
+      "Shell(git -C * fetch *)",
+      "Shell(git -C * fetch)",
+      "Shell(git -C * log *)",
+      "Shell(git -C * log)",
+      "Shell(git -C * remote *)",
+      "Shell(git -C * remote)",
+      "Shell(git -C * rev-parse)",
+      "Shell(git -C * show *)",
+      "Shell(git -C * show)",
+      "Shell(git -C * stash list *)",
+      "Shell(git -C * stash list)",
+      "Shell(git -C * status *)",
+      "Shell(git -C * status)",
+      "Shell(git -C * tag *)",
+      "Shell(git -C * tag)",
       "Shell(git bisect *)",
       "Shell(git bisect)",
       "Shell(git blame *)",
@@ -223,9 +246,7 @@
       "Shell(base64)",
       "Shell(psql)"
     ],
-    "deny": [
-      "Shell(git -C *)"
-    ]
+    "deny": []
   },
   "version": 1,
   "editor": {
