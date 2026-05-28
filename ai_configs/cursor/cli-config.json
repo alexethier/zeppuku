@@ -7,6 +7,7 @@
       "Shell(./mvnw -ntp --batch-mode checkstyle:check)",
       "Shell(./mvnw -ntp --batch-mode test -Dtest=RetryOnTransientErrorFilterTest)",
       "Shell(./mvnw test-compile *)",
+      "Shell(./mvnw *)",
       "Shell(./mvnw verify *)",
       "Shell(./yetis_helper.sh)",
       "Shell(/Users/aethier/playground/the_source/snowflake/aethier-oflowctl/bin/oflowctl)",
@@ -18,6 +19,7 @@
       "Shell(alias)",
       "Shell(awk *)",
       "Shell(aws *)",
+      "Shell(aws s3 ls *)",
       "Shell(aws)",
       "Shell(basename *)",
       "Shell(bash -n)",
@@ -179,7 +181,11 @@
       "Shell(mdfind)",
       "Shell(mkdir *)",
       "Shell(mkdir)",
+      "Shell(mvn * compile)",
+      "Shell(mvn * compile *)",
       "Shell(mvn *)",
+      "Shell(mvn * test-compile)",
+      "Shell(mvn * test-compile *)",
       "Shell(mvn -pl *)",
       "Shell(mvn)",
       "Shell(mvn-or-mvnw *)",
@@ -199,6 +205,7 @@
       "Shell(ps)",
       "Shell(pwd *)",
       "Shell(pwd)",
+      "Shell(python3 -c *)",
       "Shell(python3 *)",
       "Shell(python3)",
       "Shell(read)",
@@ -211,6 +218,7 @@
       "Shell(scp)",
       "Shell(sed *)",
       "Shell(sf ws list)",
+      "Shell(snow sql -c som-qa6 -q *)",
       "Shell(snow sql -c ta *)",
       "Shell(sf ws list *)",
       "Shell(seq)",
@@ -269,7 +277,12 @@
       "Shell(PGPASSWORD=openflow psql *)",
       "Shell(psql)"
     ],
-    "deny": []
+    "deny": [
+      "Shell(mvn * deploy *)",
+      "Shell(mvn deploy *)",
+      "Shell(./mvnw * deploy *)",
+      "Shell(./mvnw deploy *)"
+    ]
   },
   "version": 1,
   "editor": {
