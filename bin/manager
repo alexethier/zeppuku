@@ -33,6 +33,8 @@ MCP_ENV_PASSTHROUGH=(
 
 log() { echo "[mcp] $*"; }
 err() { echo "[mcp] $*" >&2; }
+CURRENT_USER="$(id -un)"
+MCP_CONFIG_USERS=(aethier ai_assistant)
 
 mcp_dir() {
     local d="$MCP_DIR/$1"
@@ -243,8 +245,9 @@ cmd_list() {
     done
 }
 
-CURSOR_MCP_JSON="$HOME/.cursor/mcp.json"
-CLAUDE_CONFIG_JSON="$HOME/.claude.json"
+user_home() {
+    echo "/Users/$1"
+}
 
 _register_in_config() {
     local config_file="$1"
@@ -293,6 +296,105 @@ _unregister_in_config() {
     mv "$tmp" "$config_file"
 }
 
+_register_in_config_as_user() {
+    local target_user="$1"
+    local server_name="$2"
+    local url="$3"
+    local target="$4" # cursor|claude
+
+    local home_dir; home_dir="$(user_home "$target_user")"
+    local config_file
+    if [[ "$target" == "cursor" ]]; then
+        config_file="$home_dir/.cursor/mcp.json"
+    else
+        config_file="$home_dir/.claude.json"
+    fi
+
+    if [[ "$CURRENT_USER" == "$target_user" ]]; then
+        _register_in_config "$config_file" "$server_name" "$url" "$target"
+        return
+    fi
+
+    if sudo -n -u "$target_user" bash -lc '
+set -euo pipefail
+config_file="$1"
+server_name="$2"
+url="$3"
+target="$4"
+mkdir -p "$(dirname "$config_file")"
+if [[ ! -f "$config_file" ]]; then
+    echo '"'"'{"mcpServers": {}}'"'"' > "$config_file"
+fi
+tmp="$(mktemp "${config_file}.XXXXXX")"
+if [[ "$target" == "cursor" ]]; then
+    jq_expr='"'"'.mcpServers = (.mcpServers // {}) | .mcpServers[$name] = {url: $url}'"'"'
+else
+    jq_expr='"'"'.mcpServers = (.mcpServers // {}) | .mcpServers[$name] = {type: "http", url: $url}'"'"'
+fi
+jq --arg name "$server_name" --arg url "$url" "$jq_expr" "$config_file" > "$tmp"
+mv "$tmp" "$config_file"
+' _ "$config_file" "$server_name" "$url" "$target" 2>/dev/null; then
+        return
+    fi
+
+    # Fallback for shared-config symlink setups: if target user's config file
+    # is a symlink to a file writable by the current user, update that file.
+    if [[ -L "$config_file" ]]; then
+        local link_target
+        link_target="$(readlink "$config_file")"
+        if [[ "$link_target" == /* ]] && [[ -r "$link_target" ]] && [[ -w "$link_target" ]]; then
+            _register_in_config "$link_target" "$server_name" "$url" "$target"
+            return
+        fi
+    fi
+
+    return 1
+}
+
+_unregister_in_config_as_user() {
+    local target_user="$1"
+    local server_name="$2"
+    local target="$3" # cursor|claude
+
+    local home_dir; home_dir="$(user_home "$target_user")"
+    local config_file
+    if [[ "$target" == "cursor" ]]; then
+        config_file="$home_dir/.cursor/mcp.json"
+    else
+        config_file="$home_dir/.claude.json"
+    fi
+
+    if [[ "$CURRENT_USER" == "$target_user" ]]; then
+        _unregister_in_config "$config_file" "$server_name"
+        return
+    fi
+
+    if sudo -n -u "$target_user" bash -lc '
+set -euo pipefail
+config_file="$1"
+server_name="$2"
+if [[ ! -f "$config_file" ]]; then
+    exit 0
+fi
+tmp="$(mktemp "${config_file}.XXXXXX")"
+jq --arg name "$server_name" '"'"'del(.mcpServers[$name])'"'"' "$config_file" > "$tmp"
+mv "$tmp" "$config_file"
+' _ "$config_file" "$server_name" 2>/dev/null; then
+        return
+    fi
+
+    if [[ -L "$config_file" ]]; then
+        local link_target
+        link_target="$(readlink "$config_file")"
+        if [[ "$link_target" == /* ]] && [[ -r "$link_target" ]] && [[ -w "$link_target" ]]; then
+            _unregister_in_config "$link_target" "$server_name"
+            return
+        fi
+    fi
+
+    return 1
+}
+
 # Register in BOTH Cursor and Claude config files.
 cmd_register_mcp() {
     local name="$1"
@@ -310,15 +412,19 @@ cmd_register_mcp() {
     fi
 
     local url="http://localhost:$port/mcp"
-    if ! _register_in_config "$CURSOR_MCP_JSON" "$name" "$url" "cursor"; then
-        return 1
-    fi
-    if ! _register_in_config "$CLAUDE_CONFIG_JSON" "$name" "$url" "claude"; then
-        return 1
-    fi
-
-    log "registered $name in $CURSOR_MCP_JSON ($url)"
-    log "registered $name in $CLAUDE_CONFIG_JSON ($url)"
+    local target_user
+    for target_user in "${MCP_CONFIG_USERS[@]}"; do
+        if ! _register_in_config_as_user "$target_user" "$name" "$url" "cursor"; then
+            err "failed to register $name in /Users/$target_user/.cursor/mcp.json"
+            return 1
+        fi
+        if ! _register_in_config_as_user "$target_user" "$name" "$url" "claude"; then
+            err "failed to register $name in /Users/$target_user/.claude.json"
+            return 1
+        fi
+        log "registered $name in /Users/$target_user/.cursor/mcp.json ($url)"
+        log "registered $name in /Users/$target_user/.claude.json ($url)"
+    done
     log "reload Cursor/Claude (or MCP panel/settings) to pick up changes"
 }
 
@@ -330,15 +436,19 @@ cmd_unregister_mcp() {
         err "jq is required for unregister-mcp (brew install jq)"
         return 1
     fi
-    if ! _unregister_in_config "$CURSOR_MCP_JSON" "$name"; then
-        return 1
-    fi
-    if ! _unregister_in_config "$CLAUDE_CONFIG_JSON" "$name"; then
-        return 1
-    fi
-
-    log "unregistered $name from $CURSOR_MCP_JSON"
-    log "unregistered $name from $CLAUDE_CONFIG_JSON"
+    local target_user
+    for target_user in "${MCP_CONFIG_USERS[@]}"; do
+        if ! _unregister_in_config_as_user "$target_user" "$name" "cursor"; then
+            err "failed to unregister $name from /Users/$target_user/.cursor/mcp.json"
+            return 1
+        fi
+        if ! _unregister_in_config_as_user "$target_user" "$name" "claude"; then
+            err "failed to unregister $name from /Users/$target_user/.claude.json"
+            return 1
+        fi
+        log "unregistered $name from /Users/$target_user/.cursor/mcp.json"
+        log "unregistered $name from /Users/$target_user/.claude.json"
+    done
 }
 
 cmd_sync_claude_md() {
@@ -479,9 +589,11 @@ commands:
   logs    <name>      tail container logs (single MCP only)
   list                list discovered MCPs and their state
   install             symlink agents + rules into ~/.cursor/ and skills into ~/.cursor/ + ~/.claude/
-  register-mcp      <name|all>  add/update entry in BOTH ~/.cursor/mcp.json and ~/.claude.json
+  register-mcp      <name|all>  add/update entry for BOTH users (aethier + ai_assistant)
+                                in each user's ~/.cursor/mcp.json and ~/.claude.json
                                 (requires jq; MCP must have a port assigned)
-  unregister-mcp    <name|all>  remove entry from BOTH ~/.cursor/mcp.json and ~/.claude.json
+  unregister-mcp    <name|all>  remove entry for BOTH users (aethier + ai_assistant)
+                                from each user's ~/.cursor/mcp.json and ~/.claude.json
                                 (requires jq)
 
 Pass 'all' (or omit name for status) to fan the action out across every
