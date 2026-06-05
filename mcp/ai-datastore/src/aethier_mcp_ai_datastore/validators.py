@@ -119,25 +119,25 @@ def validate_label(label: str) -> str:
     return normalized
 
 
-def validate_content_or_file_path(
+def validate_optional_content_or_file_path(
     content: str | None, file_path: str | None
 ) -> tuple[str | None, str | None]:
-    # Exactly one source is required; ambiguous calls are rejected explicitly.
-    if bool(content is not None) == bool(file_path is not None):
-        raise ValueError("exactly one of content or file_path must be provided")
+    # Optional source: callers may omit both; if provided, only one is allowed.
+    if content is not None and file_path is not None:
+        raise ValueError("at most one of content or file_path may be provided")
 
     if content is not None:
         if not content.strip():
             raise ValueError("content must be non-empty")
         return content, None
 
-    assert file_path is not None
+    if file_path is None:
+        return None, None
+
     p = Path(file_path).expanduser()
     if not p.is_absolute():
         raise ValueError("file_path must be absolute")
     return None, str(p)
-
-
 def validate_optional_workflow_id(workflow_id: str | None) -> str | None:
     if workflow_id is None:
         return None

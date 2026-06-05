@@ -17,16 +17,6 @@ def _format_updated_utc_timestamp(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dt%H:%M:%Sz")
 
 
-def _derive_create_date_utc(existing_created_at: str | None, now_utc: datetime) -> str:
-    if not existing_created_at:
-        return _format_utc_date(now_utc)
-    try:
-        parsed = datetime.fromisoformat(existing_created_at.replace("Z", "+00:00"))
-    except ValueError:
-        return _format_utc_date(now_utc)
-    return _format_utc_date(parsed)
-
-
 def _apply_system_utc_labels(
     labels: list[str],
     *,
@@ -60,7 +50,7 @@ class DatastoreService:
                 max_seen = max(max_seen, int(raw_id))
         return str(max_seen + 1)
 
-    async def upsert_note(
+    async def create_note(
         self,
         workflow_id: str,
         note_description: str,
@@ -76,23 +66,23 @@ class DatastoreService:
         normalized_labels = validators.normalize_labels(labels)
         note_name = validators.validate_required_note_name(name)
         normalized_filename_hint = validators.validate_optional_filename_hint(filename_hint)
-        content, file_path = validators.validate_content_or_file_path(content, file_path)
+        content, file_path = validators.validate_optional_content_or_file_path(
+            content, file_path
+        )
 
         await self._ensure_ready()
         id_source = "caller"
         if note_id is None:
             nid = await self._generate_note_id(wf)
-            existing = None
             id_source = "system"
         else:
             nid = validators.validate_note_id(note_id)
-            existing = await repository.get_note_by_key(wf, nid)
+        existing = await repository.get_note_by_key(wf, nid)
+        if existing is not None:
+            raise ValueError(f"note already exists: workflow_id={wf!r} note_id={nid!r}")
 
         now_utc = datetime.now(timezone.utc)
-        create_date_utc = _derive_create_date_utc(
-            existing.created_at if existing is not None else None,
-            now_utc,
-        )
+        create_date_utc = _format_utc_date(now_utc)
         updated_date_utc = _format_updated_utc_timestamp(now_utc)
         now_iso = now_utc.isoformat()
         effective_labels = _apply_system_utc_labels(
@@ -101,25 +91,23 @@ class DatastoreService:
             updated_date_utc=updated_date_utc,
         )
 
-        source_kind = "content"
-        note_content: str
-        if content is not None:
-            note_content = content
-        else:
-            assert file_path is not None
-            source_kind = "file_path"
-            note_content = await filesystem.read_source_content(file_path)
-
         target_rel_path = filesystem.build_note_rel_path(
             wf,
             nid,
             note_name,
             normalized_filename_hint,
         )
+        note_content = ""
+        source_kind = "empty"
+        if content is not None:
+            note_content = content
+            source_kind = "content"
+        elif file_path is not None:
+            note_content = await filesystem.read_source_content(file_path)
+            source_kind = "file_path"
+
         rel_path = await filesystem.write_note_content_at_path(target_rel_path, note_content)
-        if existing is not None and existing.rel_path != rel_path:
-            await filesystem.delete_relative_path(existing.rel_path)
-        record, applied_labels = await repository.upsert_note_metadata(
+        record, applied_labels = await repository.create_note_metadata(
             workflow_id=wf,
             note_id=nid,
             note_description=description,
@@ -127,6 +115,7 @@ class DatastoreService:
             labels=effective_labels,
             now_iso=now_iso,
         )
+        abs_path = await filesystem.resolve_relative_path(rel_path)
         return {
             "status": "ok",
             "source": source_kind,
@@ -138,6 +127,7 @@ class DatastoreService:
             "filename_hint": normalized_filename_hint,
             "labels": applied_labels,
             "rel_path": rel_path,
+            "abs_path": abs_path,
             "note": record.to_dict(),
         }
 
@@ -211,17 +201,17 @@ class DatastoreService:
         if record is None:
             raise ValueError(f"note not found: workflow_id={wf!r} note_id={nid!r}")
         labels = await repository.list_labels_for_note(wf, nid)
-        content = await filesystem.read_note_content_at_path(record.rel_path)
+        abs_path = await filesystem.resolve_relative_path(record.rel_path)
         return {
             "status": "ok",
             "workflow_id": wf,
             "note_id": nid,
             "labels": labels,
             "rel_path": record.rel_path,
+            "abs_path": abs_path,
             "note_description": record.note_description,
             "created_at": record.created_at,
             "updated_at": record.updated_at,
-            "content": content,
             "note": record.to_dict(),
         }
 

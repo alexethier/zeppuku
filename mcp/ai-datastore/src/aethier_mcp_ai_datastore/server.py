@@ -10,7 +10,7 @@ svc = DatastoreService()
 
 
 @mcp.tool()
-async def upsert_note(
+async def create_note(
     workflow_id: str,
     note_description: str,
     labels: list[str],
@@ -20,16 +20,8 @@ async def upsert_note(
     content: str | None = None,
     file_path: str | None = None,
 ) -> dict:
-    """Create or update a note.
-
-    Exactly one content source is required:
-    - `content`: inline note text
-    - `file_path`: host file path to read
-    `note_id` is optional. If omitted, a workflow-scoped incremental ID is assigned.
-    Required `name` is a short descriptive title used in the filename.
-    Optional `filename_hint` appends a suffix hint in the filename.
-    """
-    return await svc.upsert_note(
+    """Create a note. Call usage('create_note') for details."""
+    return await svc.create_note(
         workflow_id=workflow_id,
         note_description=note_description,
         labels=labels,
@@ -43,29 +35,25 @@ async def upsert_note(
 
 @mcp.tool()
 async def get_note(workflow_id: str, note_id: str) -> dict:
-    """Get one note by workflow_id + note_id, including note content."""
+    """Get a note. Call usage('get_note') for details."""
     return await svc.get_note(workflow_id=workflow_id, note_id=note_id)
 
 
 @mcp.tool()
 async def delete_note(workflow_id: str, note_id: str) -> dict:
-    """Delete a note's file and metadata by workflow_id + note_id."""
+    """Delete one note. Call usage('delete_note') for details."""
     return await svc.delete_note(workflow_id=workflow_id, note_id=note_id)
 
 
 @mcp.tool()
 async def delete_label(label: str) -> dict:
-    """Delete a label."""
+    """Delete a label. Call usage('delete_label') for details."""
     return await svc.delete_label(label)
 
 
 @mcp.tool()
 async def get_labels(workspace_id: str | None = None) -> dict:
-    """Return distinct labels.
-
-    - If workspace_id is provided, returns labels only for that workflow scope.
-    - If workspace_id is omitted, returns all labels in the datastore.
-    """
+    """Get all labels in a workspace or globally. Call usage('get_labels') for details."""
     return await svc.get_labels(workspace_id=workspace_id)
 
 
@@ -76,7 +64,7 @@ async def search_notes_by_label(
     limit: int = 200,
     offset: int = 0,
 ) -> dict:
-    """Search notes by label DSL. Call usage('search_notes_by_label')."""
+    """Search notes by labels. Call usage('search_notes_by_label') for details."""
     return await svc.search_notes_by_label(
         query=query,
         workflow_id=workflow_id,
@@ -91,7 +79,7 @@ async def search_notes_by_workflow_id(
     limit: int = 200,
     offset: int = 0,
 ) -> dict:
-    """List all notes in one workflow. Call usage('search_notes_by_workflow_id')."""
+    """List workflow notes. Call usage('search_notes_by_workflow_id') for details."""
     return await svc.search_notes_by_workflow_id(
         workflow_id=workflow_id,
         limit=limit,

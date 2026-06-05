@@ -1,6 +1,6 @@
 # ai-datastore Examples
 
-## upsert_note create from inline content (system note_id)
+## create_note with system note_id
 
 Use:
 
@@ -10,39 +10,23 @@ Use:
   "note_description": "Deployment plan for staging",
   "name": "deployment-plan",
   "filename_hint": "v1",
-  "labels": ["backend", "release"],
-  "content": "Step 1: ...",
-  "file_path": null
+  "labels": ["backend", "release"]
 }
 ```
 
-## upsert_note create from file_path (system note_id)
-
-Use:
-
-```json
-{
-  "workflow_id": "FLOW-1234",
-  "note_description": "Imported incident summary",
-  "name": "incident-summary",
-  "labels": ["incident", "postmortem"],
-  "content": null,
-  "file_path": "/Users/aethier/playground/notes/incident.txt"
-}
-```
-
-## upsert_note update for known note_id
+## create_note with caller-provided note_id
 
 ```json
 {
   "workflow_id": "FLOW-1234",
   "note_id": "1",
-  "note_description": "Implementation plan v2",
+  "note_description": "Implementation plan",
   "name": "implementation-plan",
-  "labels": ["plan", "implementation"],
-  "content": "Updated plan..."
+  "labels": ["plan", "implementation"]
 }
 ```
+
+After creating the note, write content directly to the returned `abs_path`.
 
 ## get_note
 
@@ -84,7 +68,7 @@ Use:
 }
 ```
 
-## search_notes DSL examples
+## search_notes_by_label DSL examples
 
 ### Single label
 
@@ -115,13 +99,12 @@ Use:
 }
 ```
 
-### Scoped by workflow and path glob
+### Scoped by workflow
 
 ```json
 {
   "query": {"or": [{"label": "backend"}, {"label": "frontend"}]},
   "workflow_id": "FLOW-1234",
-  "glob": "**/backend-*.md",
   "limit": 200,
   "offset": 0
 }

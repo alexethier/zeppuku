@@ -6,8 +6,8 @@ Agent-facing datastore MCP for workflow notes.
 - Stores note/label metadata in CSV files under
   `/Users/aethier/playground/ai_datastore/` via `csvq`.
 - Exposes tools for:
-  - `upsert_note(...)` (create/update) from inline content or a source file path
-  - `get_note(...)` by `workflow_id` + `note_id` (returns metadata + content)
+  - `create_note(...)` (create-only) with optional initial `content` or `file_path`
+  - `get_note(...)` by `workflow_id` + `note_id` (returns metadata + relative/absolute paths)
   - `delete_note(...)`
   - `delete_label(...)` with immediate garbage collection of unlabeled notes
   - `get_labels(workspace_id=None)` for unique labels (scoped or global)
@@ -17,15 +17,24 @@ Agent-facing datastore MCP for workflow notes.
 This MCP uses the host bridge for file and CSV-backed metadata operations so data lives on
 the host filesystem.
 
-`upsert_note` requires a short descriptive `name`. The server cleanses it
+`create_note` requires a short descriptive `name`. The server cleanses it
 (removes unsupported characters, normalizes whitespace, enforces max length),
 then filenames are generated as `<note_id>--<slug(name)>.md`.
 Optionally pass `filename_hint` to append a suffix:
 `<note_id>--<slug(name)>--<slug(filename_hint)>.md`.
 
-On every `upsert_note`, the datastore also injects canonical UTC system labels:
-- `create_date_utc:YYYY-MM-DD` (preserved from original creation date)
-- `updated_date_utc:YYYY-MM-DDtHH:MM:SSz` (refreshed on every update)
+Optional content source rules for `create_note`:
+- provide `content` to initialize from inline text
+- provide `file_path` to initialize from an existing host file
+- provide neither to create an empty note file
+- do not provide both
+
+On every `create_note`, the datastore injects canonical UTC system labels:
+- `create_date_utc:YYYY-MM-DD`
+- `updated_date_utc:YYYY-MM-DDtHH:MM:SSz`
+
+`get_note` does not return note content. The caller receives paths and should read
+or edit the file directly via the returned `abs_path`.
 
 ## Run
 

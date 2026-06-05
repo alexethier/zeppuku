@@ -62,6 +62,10 @@ elif action == "read_rel":
         raise ValueError(f"path is not a file: {abs_path}")
     text = abs_path.read_text(encoding="utf-8")
     print(json.dumps({"content": text, "abs_path": str(abs_path)}))
+elif action == "resolve_rel":
+    rel_path = payload["rel_path"]
+    abs_path = _safe_rel_path(rel_path)
+    print(json.dumps({"abs_path": str(abs_path)}))
 elif action == "delete_rel":
     rel_path = payload["rel_path"]
     abs_path = _safe_rel_path(rel_path)
@@ -141,6 +145,11 @@ async def read_source_content(file_path: str) -> str:
 async def read_note_content_at_path(rel_path: str) -> str:
     out = await _host_fs_call("read_rel", {"rel_path": rel_path})
     return str(out["content"])
+
+
+async def resolve_relative_path(rel_path: str) -> str:
+    out = await _host_fs_call("resolve_rel", {"rel_path": rel_path})
+    return str(out["abs_path"])
 
 
 async def delete_relative_path(rel_path: str) -> bool:

@@ -55,7 +55,7 @@ async def list_note_ids_for_workflow(workflow_id: str) -> list[str]:
     return [str(r["note_id"]) for r in rows]
 
 
-async def upsert_note_metadata(
+async def create_note_metadata(
     workflow_id: str,
     note_id: str,
     note_description: str,
@@ -64,23 +64,18 @@ async def upsert_note_metadata(
     now_iso: str,
 ) -> tuple[NoteRecord, list[str]]:
     existing = await get_note_by_key(workflow_id, note_id)
-    if existing is None:
-        await db.query(
-            f"INSERT INTO {db.NOTES_TABLE} "
-            "(workflow_id, note_id, note_description, rel_path, created_at, updated_at) "
-            f"VALUES ({db.sql_literal(workflow_id)}, {db.sql_literal(note_id)}, "
-            f"{db.sql_literal(note_description)}, {db.sql_literal(rel_path)}, "
-            f"{db.sql_literal(now_iso)}, {db.sql_literal(now_iso)})"
+    if existing is not None:
+        raise ValueError(
+            f"duplicate note key: workflow_id={workflow_id!r} note_id={note_id!r}"
         )
-    else:
-        await db.query(
-            f"UPDATE {db.NOTES_TABLE} SET "
-            f"note_description = {db.sql_literal(note_description)}, "
-            f"rel_path = {db.sql_literal(rel_path)}, "
-            f"updated_at = {db.sql_literal(now_iso)} "
-            f"WHERE workflow_id = {db.sql_literal(workflow_id)} "
-            f"AND note_id = {db.sql_literal(note_id)}"
-        )
+
+    await db.query(
+        f"INSERT INTO {db.NOTES_TABLE} "
+        "(workflow_id, note_id, note_description, rel_path, created_at, updated_at) "
+        f"VALUES ({db.sql_literal(workflow_id)}, {db.sql_literal(note_id)}, "
+        f"{db.sql_literal(note_description)}, {db.sql_literal(rel_path)}, "
+        f"{db.sql_literal(now_iso)}, {db.sql_literal(now_iso)})"
+    )
 
     await db.query(
         f"DELETE FROM {db.NOTE_LABELS_TABLE} "
@@ -96,7 +91,7 @@ async def upsert_note_metadata(
 
     record = await get_note_by_key(workflow_id, note_id)
     if record is None:
-        raise RuntimeError("upsert_note_metadata failed to persist note")
+        raise RuntimeError("create_note_metadata failed to persist note")
     applied_labels = await list_labels_for_note(workflow_id, note_id)
     return record, applied_labels
 

@@ -13,8 +13,8 @@ If a sub-agent has a question or flags an issue, you are first in line to resolv
 ### `backlog`
 This state means the workflow exists but planning work has not started.
 - **Target next state:** `implementation_plan:drafted`.
-- Clarify scope, acceptance criteria, and constraints, then persist an initial investigation note with `ai-datastore.upsert_note(workflow_id=<workflow_id>, note_description="Initial investigation", name="initial-investigation", labels=["artifact:initial_investigation","phase:planning"], content=<markdown>)`.
-- Draft implementation options plus a recommended approach, then persist the plan with `ai-datastore.upsert_note(workflow_id=<workflow_id>, note_description="Implementation plan draft", name="implementation-plan-draft", labels=["artifact:implementation_plan","phase:planning"], content=<markdown>)`.
+- Clarify scope, acceptance criteria, and constraints, then persist an initial investigation note with `ai-datastore.create_note(workflow_id=<workflow_id>, note_description="Initial investigation", name="initial-investigation", labels=["artifact:initial_investigation","phase:planning"])`, then write the note body to the returned `abs_path`.
+- Draft implementation options plus a recommended approach, then persist the plan with `ai-datastore.create_note(workflow_id=<workflow_id>, note_description="Implementation plan draft", name="implementation-plan-draft", labels=["artifact:implementation_plan","phase:planning"])`, then write the plan markdown to the returned `abs_path`.
 
 ### `implementation_plan:drafted`
 This state means an implementation plan draft exists and is awaiting review.
@@ -25,7 +25,7 @@ This state means an implementation plan draft exists and is awaiting review.
 ### `implementation_plan:accepted`
 This state means the implementation approach is approved for execution.
 - **Target next state:** `implemented`.
-- Post the approved plan to ai-datastore via `ai-datastore.upsert_note(workflow_id=<workflow_id>, note_description="Implementation plan accepted", name="implementation-plan-accepted", labels=["artifact:implementation_plan","status:accepted"], content=<markdown>)`.
+- Post the approved plan to ai-datastore via `ai-datastore.create_note(workflow_id=<workflow_id>, note_description="Implementation plan accepted", name="implementation-plan-accepted", labels=["artifact:implementation_plan","status:accepted"])`, then write markdown to the returned `abs_path`.
 - Execute the approved plan and keep implementation aligned to agreed scope.
 - Check out a new worktree with `git.checkout_branch(repo=<owner/name>, name=<workflow_id>)`, and if it returns `in_progress`, re-call until `status == "ready"`.
 - Once code changes are complete and ready for review, transition to `implemented`.
@@ -69,7 +69,7 @@ This state means a smoke-test runbook draft exists and needs decision.
 - Look at our code changes to determine the smoke tests that would exercise changed code paths
 - Submit for review and transition according to the decision.
 - Write scripts that can conduct smoke tests, the scripts should produce logs
-- Persist smoke-test runbook instructions and supporting artifacts with `ai-datastore.upsert_note(workflow_id=<workflow_id>, note_description="Smoke test runbook + artifacts", name="smoke-test-runbook-artifacts", labels=["artifact:smoke_test_runbook","phase:testing"], content=<instructions_and_file_paths>)` (or use `file_path=<absolute_path>` when storing from an existing file).
+- Persist smoke-test runbook instructions and supporting artifacts with `ai-datastore.create_note(workflow_id=<workflow_id>, note_description="Smoke test runbook + artifacts", name="smoke-test-runbook-artifacts", labels=["artifact:smoke_test_runbook","phase:testing"])`, then write instructions/file paths to the returned `abs_path`.
 
 ### `smoke_test_runbook:accepted`
 This state means the smoke-test runbook is approved and instrumentation work should proceed.
@@ -92,25 +92,24 @@ This state means instrumentation has been added; add a new instrumentation test 
 - **Target next state:** `test_plan_with_instrumentation_added`.
 - Verify instrumentation wiring, signal quality, and execution safety.
 - Add a new instrumentation test runbook file that covers the extra instrumentation checks. This is separate from the main smoke test runbook, and the main smoke test runbook can reference it.
-- Post to `ai-datastore.upsert_note` any new instrumentation classes added. Example file-based command:
-  `./bin/mcp ai-datastore call upsert_note workflow_id="<workflow_id>" note_description="New instrumentation class" labels='["artifact:instrumentation","phase:testing"]' name="instrumentation-class" filename_hint="temp-it-class" file_path="/absolute/path/to/NewInstrumentationClass.java"`
+- Post to `ai-datastore.create_note` any new instrumentation classes added, then copy class content into the returned `abs_path`.
 
 ### `test_plan_with_instrumentation_added`
 This state means the executable test runbook now includes steps where instrumentation is checked.
 - **Target next state:** `tested:instrumentation`.
 - Confirm smoke runbook plus instrumentation runbook are fully integrated and executable.
 - Execute the runbook and transition when test execution is complete.
-- Persist test/log evidence with `ai-datastore.upsert_note(workflow_id=<workflow_id>, note_description="Instrumented test logs", name="instrumented-test-logs", labels=["artifact:test_logs","phase:testing"], content=<log_summary_or_paths>)`, this is essential.
+- Persist test/log evidence with `ai-datastore.create_note(workflow_id=<workflow_id>, note_description="Instrumented test logs", name="instrumented-test-logs", labels=["artifact:test_logs","phase:testing"])`, then write the log summary/paths to the returned `abs_path`. This is essential.
 
 ### `tested:instrumentation`
 This state means instrumented test execution completed for the current cycle.
 - **Target next states:** `tested:instrumentation:repeated:accepted` or `tested:instrumentation:repeated:denied`.
 - Have a different external AI model re-run the test to perform an independent and unbiased verification. The AI model should run as a strict gatekeeper role
 - Transition directly to accepted/denied based on repeated test outcome.
-- It is imperative the other AI model posts any logs to ai-datastore. Example commands:
-  - File-based logs: `./bin/mcp ai-datastore call upsert_note workflow_id="<workflow_id>" note_description="Independent model test logs" labels='["artifact:test_logs","phase:testing","source:independent_model"]' name="independent-model-logs" filename_hint="retest-log" file_path="/absolute/path/to/retest.log"`
-  - Inline logs: `./bin/mcp ai-datastore call upsert_note workflow_id="<workflow_id>" note_description="Independent model test logs" labels='["artifact:test_logs","phase:testing","source:independent_model"]' name="independent-model-logs" filename_hint="retest-log" content="<log text or summary>"`
-  - Final decision (required): `./bin/mcp ai-datastore call upsert_note workflow_id="<workflow_id>" note_description="Independent model final test verdict (pass/fail + ready/not-ready)" labels='["artifact:test_verdict","phase:testing","source:independent_model"]' name="independent-model-final-verdict" filename_hint="ready-check" content="Result: PASS|FAIL. Ready: YES|NO. Rationale: <brief reason>"`
+- It is imperative the other AI model posts any logs to ai-datastore. Example flow:
+  - Create log note: `./bin/mcp ai-datastore call create_note workflow_id="<workflow_id>" note_description="Independent model test logs" labels='["artifact:test_logs","phase:testing","source:independent_model"]' name="independent-model-logs" filename_hint="retest-log"`
+  - Write log text/files into the returned `abs_path`.
+  - Final decision (required): create note with `name="independent-model-final-verdict"` and write `Result: PASS|FAIL. Ready: YES|NO. Rationale: <brief reason>` into its returned `abs_path`.
 
 ### `tested:instrumentation:repeated:accepted`
 This state means repeated instrumented testing was accepted.

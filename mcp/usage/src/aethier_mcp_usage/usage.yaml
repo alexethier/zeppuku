@@ -285,18 +285,25 @@ search_notes_by_workflow_id: 'search_notes_by_workflow_id(workflow_id, limit=200
   {"matches": [{"workflow_id": "...", "note_id": "...", "labels": ["..."]}, ...]}
 
   '
-upsert_note: 'upsert_note(workflow_id, note_description, labels, name, filename_hint=None, note_id=None, content=None, file_path=None)
+create_note: 'create_note(workflow_id, note_description, labels, name, filename_hint=None, note_id=None, content=None, file_path=None)
 
 
-  Create or update a note. Exactly one of `content` or `file_path` is required.
+  Create one note. If `note_id` is omitted, the system assigns a workflow-scoped ID.
+  Duplicate `(workflow_id, note_id)` values are rejected.
+  Optional content source: provide at most one of `content` or `file_path`.
+  If both are omitted, an empty note file is created.
+  Note content updates should be performed by editing the note file directly
+  using the returned `abs_path`/`rel_path`, not by calling create_note again.
+  Note content reads should be performed by reading the note file directly
+  from the returned path.
 
-  Automatic UTC system labels are always applied on write:
-  - `create_date_utc:YYYY-MM-DD` (preserved from original creation date)
-  - `updated_date_utc:YYYY-MM-DDtHH:MM:SSz` (refreshed on every upsert)
+  Automatic UTC system labels are always applied on create:
+  - `create_date_utc:YYYY-MM-DD`
+  - `updated_date_utc:YYYY-MM-DDtHH:MM:SSz`
 
   If caller supplies `create_date_utc:*` or `updated_date_utc:*`, those values
   are replaced by the canonical system-generated values above.
 
-  Returns the stored note metadata plus final labels.
+  Returns the stored note metadata plus final labels and both rel/abs note paths.
 
   '
