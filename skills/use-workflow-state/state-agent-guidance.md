@@ -18,9 +18,29 @@ This state means the workflow exists but planning work has not started.
 
 ### `implementation_plan:drafted`
 This state means an implementation plan draft exists and is awaiting review.
-- **Target next states:** `implementation_plan:accepted` or `implementation_plan:denied`.
-- Post Alex in slack that the plan is ready, post the plan itself
-- Iterate on feedback, in some cases Alex may just tell us to proceed with no changes
+- **Target next state:** `implementation_plan:ai_review:requested`.
+- Spawn a subagent to review the plan and capture structured review feedback.
+- When spawning the review subagent, always provide:
+  - absolute path(s) to the relevant repo(s) or worktree(s)
+  - the current implementation plan text (full draft, not a short summary)
+  - the `workflow_id` and any explicit acceptance criteria/constraints
+- Persist subagent review notes in ai-datastore for traceability.
+- Transition only after review has been formally requested.
+
+### `implementation_plan:ai_review:requested`
+This state means subagent review of the implementation plan is in progress or awaiting results.
+- **Target next state:** `implementation_plan:ai_review:addressed`.
+- Collect subagent review findings and decide which items to apply or explicitly reject.
+- Update the plan draft (if needed) and document resolutions for each major review item.
+- Transition when all relevant subagent feedback is addressed.
+
+### `implementation_plan:ai_review:addressed`
+This state means subagent review findings have been addressed and the plan is ready for decision.
+- **Target next states:** `implementation_plan:accepted`, `implementation_plan:denied`, or `implementation_plan:drafted`.
+- Update the existing saved implementation plan in ai-datastore by editing the same plan file at its existing `abs_path` (do not create a new plan note).
+- If updates are complete and quality is sufficient, move to accepted.
+- If major issues remain, move to denied.
+- If substantial rework is needed before a decision, move back to drafted.
 
 ### `implementation_plan:accepted`
 This state means the implementation approach is approved for execution.
@@ -38,20 +58,35 @@ This state means the implementation plan was rejected and needs revision.
 
 ### `implemented`
 This state means implementation work is complete and ready for review decisions.
-- **Target next states:** `in_depth_review:accepted` or `in_depth_review:denied`.
-- Do a detailed code review, first search for major errors or design issues
-- Do a secondary review of nits, fix small issues, make sure we follow good practices
-- Make sure we try to follow existing code patterns when they make sense
-- If a major refactor is required or there is a major issue, transition to in_depth_review:denied and stop.
-- After doing the in depth review, apply fixes for it, address the items, after all major and moderate issues are accepted proceed.
-- Fix flagged items yourself, only prompt me for very serious changes to the plan that are not obvious
+- **Target next states:** `implementation:accepted` or `implementation:denied`.
+- Do a detailed code review, first search for major errors or design issues.
+- Do a secondary review for nits and code quality improvements.
+- If major issues are found, fix them or move to `implementation:denied` when rework is substantial.
+- If implementation quality is acceptable, move to `implementation:accepted`.
+
+### `tests:requested`
+This state means combined unit/IT tests are running or queued.
+- **Target next states:** `tests:passed` or `tests:failed`.
+- Execute both unit and integration test commands for affected code paths.
+- Persist test evidence (commands, summaries, key logs) to ai-datastore.
+- If any required test fails, move to `tests:failed`; otherwise move to `tests:passed`.
+
+### `tests:passed`
+This state means combined unit/IT validation succeeded.
+- **Target next state:** `smoke_test_runbook:drafted`.
+- Confirm test evidence is complete and transition to smoke-test runbook drafting.
+
+### `tests:failed`
+This state means combined unit/IT validation failed and code fixes are required.
+- **Target next state:** `implemented`.
+- Triage failures, apply fixes, and prepare for another combined unit/IT cycle.
+- Transition back to `implemented` once fixes are ready for re-test.
 
 ### `in_depth_review:accepted`
-This state means deep review passed and smoke-test runbook drafting can begin.
-- **Target next state:** `smoke_test_runbook:drafted`.
-- Commit and push the feature branch to git. Do not squash previous commits.
-- Create a step-by-step smoke-test runbook for conducting smoke testing, covering all new code paths.
-- Once the draft is complete and reviewable, transition to smoke-test-plan drafted.
+This state means deep review passed and combined unit/IT execution should run next.
+- **Target next state:** `tests:requested`.
+- Define and run combined unit/integration test commands for changed code paths.
+- Persist test evidence and transition to `tests:passed` or `tests:failed`.
 
 ### `in_depth_review:denied`
 This state means deep review failed and implementation needs rework.

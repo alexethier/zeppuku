@@ -39,9 +39,14 @@ Use this skill when the user asks to:
 
 - `backlog`
 - `implementation_plan:drafted`
+- `implementation_plan:ai_review:requested`
+- `implementation_plan:ai_review:addressed`
 - `implementation_plan:accepted`
 - `implementation_plan:denied`
 - `implemented`
+- `tests:requested`
+- `tests:passed`
+- `tests:failed`
 - `implementation:accepted`
 - `implementation:denied`
 - `in_depth_review:accepted`
@@ -66,11 +71,16 @@ Use this skill when the user asks to:
 
 - `backlog`: The workflow exists but work has not started yet.
 - `implementation_plan:drafted`: An implementation plan is being drafted and is not yet reviewed.
+- `implementation_plan:ai_review:requested`: A subagent review of the drafted implementation plan has been requested and is pending.
+- `implementation_plan:ai_review:addressed`: Subagent review feedback has been addressed (updates applied or explicitly resolved).
 - `implementation_plan:accepted`: The implementation plan is approved and execution can proceed.
 - `implementation_plan:denied`: The implementation plan was rejected and must be revised.
 - `implemented`: Code changes have been made and are ready for implementation review.
+- `tests:requested`: Combined unit/integration test execution has been requested after in-depth review and is in progress.
+- `tests:passed`: Required combined unit/integration tests passed and smoke-test runbook drafting can proceed.
+- `tests:failed`: Combined unit/integration tests failed and implementation fixes are required.
 - `implementation:accepted`: The implementation itself is approved and test planning can begin.
-- `in_depth_review:accepted`: In-depth review passed and smoke-test runbook drafting can begin.
+- `in_depth_review:accepted`: In-depth review passed and combined unit/integration testing should run next.
 - `in_depth_review:denied`: In-depth review failed and implementation changes are required before re-review.
 - `implementation:denied`: The implementation review failed and code changes are required.
 - `smoke_test_runbook:drafted`: A smoke-test runbook is being drafted and not yet approved.
@@ -92,12 +102,17 @@ Use this skill when the user asks to:
 ## Transition rules
 
 - `backlog -> implementation_plan:drafted`
-- `implementation_plan:drafted -> implementation_plan:accepted|implementation_plan:denied`
+- `implementation_plan:drafted -> implementation_plan:ai_review:requested`
+- `implementation_plan:ai_review:requested -> implementation_plan:ai_review:addressed`
+- `implementation_plan:ai_review:addressed -> implementation_plan:accepted|implementation_plan:denied|implementation_plan:drafted`
 - `implementation_plan:accepted -> implemented`
 - `implementation_plan:denied -> implementation_plan:drafted`
 - `implemented -> implementation:accepted|implementation:denied`
 - `implementation:accepted -> in_depth_review:accepted|in_depth_review:denied`
-- `in_depth_review:accepted -> smoke_test_runbook:drafted`
+- `in_depth_review:accepted -> tests:requested`
+- `tests:requested -> tests:passed|tests:failed`
+- `tests:passed -> smoke_test_runbook:drafted`
+- `tests:failed -> implemented`
 - `in_depth_review:denied -> implemented`
 - `implementation:denied -> implemented`
 - `smoke_test_runbook:drafted -> smoke_test_runbook:accepted|smoke_test_runbook:denied`
