@@ -1,0 +1,8 @@
+---
+description: Read ~/CLAUDE.md on Cloud Workspaces after first SSH connection
+alwaysApply: true
+---
+
+# Read CWS CLAUDE.md on Connection
+
+When first connecting to a Cloud Workspace (CWS) via `oflowctl cws ssh`, read `~/CLAUDE.md` on the remote host to get workspace-specific context (code paths, scripts, conventions). Do this before running other commands.
