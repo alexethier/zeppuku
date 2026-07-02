@@ -321,3 +321,15 @@ create_note: 'create_note(workflow_id, note_description, labels, name, filename_
   Returns the stored note metadata plus final labels and both rel/abs note paths.
 
   '
+delete_note: 'delete_note(workflow_id, note_id)
+
+
+  Delete one note by workflow and note id.
+
+  Safety requirement: only call this tool after explicit user confirmation
+  for the specific note being deleted.
+
+  Returns:
+  {"status":"ok","deleted":true,"workflow_id":"...","note_id":"...","rel_path":"..."}
+
+  '
