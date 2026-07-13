@@ -67,17 +67,15 @@ assign_port() {
         return
     fi
 
+    # Collect every port already recorded anywhere in state.yaml -- not just
+    # currently-discovered MCPs. Stale entries for removed MCPs (e.g. host-poc)
+    # may still have a container bound to their port, so treating them as free
+    # would cause `docker run -p` collisions.
+    local taken_ports
+    taken_ports="$("$STATE" show | sed -n 's/^[[:space:]]*port:[[:space:]]*\([0-9][0-9]*\).*/\1/p')"
+
     local port=$((BASE_PORT + 1))
-    while :; do
-        local taken=0
-        for other in $(list_mcps); do
-            local op; op="$("$STATE" get "mcps.$other.port")"
-            if [[ "$op" == "$port" ]]; then
-                taken=1
-                break
-            fi
-        done
-        [[ $taken -eq 0 ]] && break
+    while grep -qx "$port" <<<"$taken_ports"; do
         port=$((port + 1))
     done
 
