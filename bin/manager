@@ -175,12 +175,22 @@ cmd_start() {
     # so the bind mount doesn't materialize as root-owned.
     mkdir -p "$HOME/.aedev/aethier-mcp"
 
+    # Per-MCP config: if mcp/<name>/mcp.yaml exists, parse the volumes list.
+    local volume_args=(-v "$HOME/.aedev/aethier-mcp:$HOME/.aedev/aethier-mcp")
+    local mcp_config="$MCP_DIR/$name/mcp.yaml"
+    if [[ -f "$mcp_config" ]]; then
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && volume_args+=(-v "$line")
+        done < <(awk '/^volumes:/{f=1;next} f&&/^[^ ]/{f=0} f&&/^ *- /{sub(/^ *- */,"");print}' "$mcp_config")
+    fi
+
     log "starting $name on port $port"
     docker run -d --name "$cname" -p "$port:8000" \
-        -v "$HOME/.aedev/aethier-mcp:$HOME/.aedev/aethier-mcp" \
+        ${volume_args[@]+"${volume_args[@]}"} \
         -e "HOME=$HOME" \
         ${env_args[@]+"${env_args[@]}"} "$image" >/dev/null
     log "started $name -> http://localhost:$port/mcp"
+    cmd_register_mcp "$name" true
 }
 
 cmd_suspend() {
@@ -394,8 +404,10 @@ mv "$tmp" "$config_file"
 }
 
 # Register in BOTH Cursor and Claude config files.
+# Quiet when already registered at the correct URL (idempotent no-op).
 cmd_register_mcp() {
     local name="$1"
+    local quiet="${2:-false}"
     mcp_dir "$name" >/dev/null
 
     if ! command -v jq >/dev/null 2>&1; then
@@ -410,6 +422,7 @@ cmd_register_mcp() {
     fi
 
     local url="http://localhost:$port/mcp"
+    local registered_any=false
     local target_user
     for target_user in "${MCP_CONFIG_USERS[@]}"; do
         if ! _register_in_config_as_user "$target_user" "$name" "$url" "cursor"; then
@@ -420,10 +433,11 @@ cmd_register_mcp() {
             err "failed to register $name in /Users/$target_user/.claude.json"
             return 1
         fi
-        log "registered $name in /Users/$target_user/.cursor/mcp.json ($url)"
-        log "registered $name in /Users/$target_user/.claude.json ($url)"
+        registered_any=true
     done
-    log "reload Cursor/Claude (or MCP panel/settings) to pick up changes"
+    if [[ "$quiet" != "true" && "$registered_any" == "true" ]]; then
+        log "registered $name in config files ($url)"
+    fi
 }
 
 # Unregister from BOTH Cursor and Claude config files.
@@ -524,19 +538,22 @@ cmd_install() {
 
     # --- skills ---
     local skills_src="$WORKSPACE_DIR/skills"
-    local skills_cursor_dst="$HOME/.cursor/skills"
-    local skills_claude_dst="$HOME/.claude/skills"
     if [[ -d "$skills_src" ]]; then
-        mkdir -p "$skills_cursor_dst" "$skills_claude_dst"
-        local count=0 d name
+        local count=0 d name target_user home_dir skills_cursor_dst skills_claude_dst
         shopt -s nullglob
         for d in "$skills_src"/*/; do
             [[ -f "$d/SKILL.md" ]] || continue
             name="$(basename "$d")"
-            ln -sfn "$d" "$skills_cursor_dst/$name"
-            log "skill(cursor): $skills_cursor_dst/$name -> $d"
-            ln -sfn "$d" "$skills_claude_dst/$name"
-            log "skill(claude): $skills_claude_dst/$name -> $d"
+            for target_user in "${MCP_CONFIG_USERS[@]}"; do
+                home_dir="$(user_home "$target_user")"
+                skills_cursor_dst="$home_dir/.cursor/skills"
+                skills_claude_dst="$home_dir/.claude/skills"
+                mkdir -p "$skills_cursor_dst" "$skills_claude_dst" 2>/dev/null || true
+                ln -sfn "$d" "$skills_cursor_dst/$name" 2>/dev/null || true
+                ln -sfn "$d" "$skills_claude_dst/$name" 2>/dev/null || true
+            done
+            log "skill(cursor): $HOME/.cursor/skills/$name -> $d"
+            log "skill(claude): $HOME/.claude/skills/$name -> $d"
             count=$((count + 1))
         done
         shopt -u nullglob
