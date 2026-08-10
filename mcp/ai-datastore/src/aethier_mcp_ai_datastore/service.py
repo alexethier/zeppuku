@@ -58,17 +58,12 @@ class DatastoreService:
         name: str,
         filename_hint: str | None = None,
         note_id: str | None = None,
-        content: str | None = None,
-        file_path: str | None = None,
     ) -> dict:
         wf = validators.validate_workflow_id(workflow_id)
         description = validators.validate_note_description(note_description)
         normalized_labels = validators.normalize_labels(labels)
         note_name = validators.validate_required_note_name(name)
         normalized_filename_hint = validators.validate_optional_filename_hint(filename_hint)
-        content, file_path = validators.validate_optional_content_or_file_path(
-            content, file_path
-        )
 
         await self._ensure_ready()
         id_source = "caller"
@@ -97,16 +92,7 @@ class DatastoreService:
             note_name,
             normalized_filename_hint,
         )
-        note_content = ""
-        source_kind = "empty"
-        if content is not None:
-            note_content = content
-            source_kind = "content"
-        elif file_path is not None:
-            note_content = await filesystem.read_source_content(file_path)
-            source_kind = "file_path"
-
-        rel_path = await filesystem.write_note_content_at_path(target_rel_path, note_content)
+        rel_path = await filesystem.write_note_content_at_path(target_rel_path, "")
         record, applied_labels = await repository.create_note_metadata(
             workflow_id=wf,
             note_id=nid,
@@ -118,7 +104,6 @@ class DatastoreService:
         abs_path = await filesystem.resolve_relative_path(rel_path)
         return {
             "status": "ok",
-            "source": source_kind,
             "id_source": id_source,
             "workflow_id": wf,
             "note_id": nid,
@@ -129,30 +114,6 @@ class DatastoreService:
             "rel_path": rel_path,
             "abs_path": abs_path,
             "note": record.to_dict(),
-        }
-
-    async def delete_note(self, workflow_id: str, note_id: str) -> dict:
-        wf = validators.validate_workflow_id(workflow_id)
-        nid = validators.validate_note_id(note_id)
-        await self._ensure_ready()
-
-        existing = await repository.get_note_by_key(wf, nid)
-        if existing is None:
-            raise ValueError(f"note not found: workflow_id={wf!r} note_id={nid!r}")
-
-        await filesystem.delete_relative_path(existing.rel_path)
-        deleted = await repository.delete_note_metadata(wf, nid)
-        await repository.prune_unreferenced_labels()
-        await filesystem.remove_workflow_dir_if_empty(wf)
-
-        if deleted is None:
-            raise RuntimeError("delete_note lost metadata unexpectedly")
-        return {
-            "status": "ok",
-            "deleted": True,
-            "workflow_id": wf,
-            "note_id": nid,
-            "rel_path": deleted.rel_path,
         }
 
     async def delete_label(self, label: str) -> dict:
@@ -192,6 +153,12 @@ class DatastoreService:
             "garbage_collected_note_ids": [n.note_id for n in orphan_notes],
         }
 
+    async def _reconcile_note(self, workflow_id: str, note_id: str) -> None:
+        """Remove metadata for a note whose file no longer exists on disk."""
+        await repository.delete_note_metadata(workflow_id, note_id)
+        await repository.prune_unreferenced_labels()
+        await filesystem.remove_workflow_dir_if_empty(workflow_id)
+
     async def get_note(self, workflow_id: str, note_id: str) -> dict:
         wf = validators.validate_workflow_id(workflow_id)
         nid = validators.validate_note_id(note_id)
@@ -200,6 +167,11 @@ class DatastoreService:
         record = await repository.get_note_by_key(wf, nid)
         if record is None:
             raise ValueError(f"note not found: workflow_id={wf!r} note_id={nid!r}")
+
+        if not await filesystem.note_file_exists(record.rel_path):
+            await self._reconcile_note(wf, nid)
+            raise ValueError(f"note not found: workflow_id={wf!r} note_id={nid!r}")
+
         labels = await repository.list_labels_for_note(wf, nid)
         abs_path = await filesystem.resolve_relative_path(record.rel_path)
         return {
@@ -241,7 +213,13 @@ class DatastoreService:
             limit=limit,
             offset=offset,
         )
-        return {"matches": matches}
+        valid = []
+        for match in matches:
+            if not await filesystem.note_file_exists(match["rel_path"]):
+                await self._reconcile_note(match["workflow_id"], match["note_id"])
+            else:
+                valid.append(match)
+        return {"matches": valid}
 
     async def search_notes_by_label(
         self,

@@ -39,6 +39,7 @@ class NoteRecord:
 class SearchNoteMatch(TypedDict):
     workflow_id: str
     note_id: str
+    rel_path: str
     labels: list[str]
 
 

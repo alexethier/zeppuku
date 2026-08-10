@@ -241,6 +241,7 @@ async def search_note_identifiers(
         {
             "workflow_id": str(row_by_key[key]["workflow_id"]),
             "note_id": str(row_by_key[key]["note_id"]),
+            "rel_path": str(row_by_key[key]["rel_path"]),
             "labels": sorted(set(labels_by_key.get(key, []))),
         }
         for key in sliced_keys

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 WORKFLOW_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{1,127}$")
 NOTE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
@@ -10,8 +9,6 @@ LABEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 SLUG_SAFE_RE = re.compile(r"[^A-Za-z0-9]+")
 NOTE_NAME_CLEAN_RE = re.compile(r"[^A-Za-z0-9._ -]+")
 NOTE_NAME_WS_RE = re.compile(r"\s+")
-
-ALLOWED_SOURCE_ROOT = Path("/Users/aethier/playground")
 
 
 def validate_workflow_id(workflow_id: str) -> str:
@@ -119,25 +116,7 @@ def validate_label(label: str) -> str:
     return normalized
 
 
-def validate_optional_content_or_file_path(
-    content: str | None, file_path: str | None
-) -> tuple[str | None, str | None]:
-    # Optional source: callers may omit both; if provided, only one is allowed.
-    if content is not None and file_path is not None:
-        raise ValueError("at most one of content or file_path may be provided")
 
-    if content is not None:
-        if not content.strip():
-            raise ValueError("content must be non-empty")
-        return content, None
-
-    if file_path is None:
-        return None, None
-
-    p = Path(file_path).expanduser()
-    if not p.is_absolute():
-        raise ValueError("file_path must be absolute")
-    return None, str(p)
 def validate_optional_workflow_id(workflow_id: str | None) -> str | None:
     if workflow_id is None:
         return None

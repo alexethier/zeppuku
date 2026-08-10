@@ -17,8 +17,6 @@ async def create_note(
     name: str,
     filename_hint: str | None = None,
     note_id: str | None = None,
-    content: str | None = None,
-    file_path: str | None = None,
 ) -> dict:
     """Create a note. Call usage('create_note') for details."""
     return await svc.create_note(
@@ -28,8 +26,6 @@ async def create_note(
         name=name,
         filename_hint=filename_hint,
         note_id=note_id,
-        content=content,
-        file_path=file_path,
     )
 
 
@@ -38,11 +34,6 @@ async def get_note(workflow_id: str, note_id: str) -> dict:
     """Get a note. Call usage('get_note') for details."""
     return await svc.get_note(workflow_id=workflow_id, note_id=note_id)
 
-
-@mcp.tool()
-async def delete_note(workflow_id: str, note_id: str) -> dict:
-    """Delete one note. Call usage('delete_note') for details."""
-    return await svc.delete_note(workflow_id=workflow_id, note_id=note_id)
 
 
 @mcp.tool()

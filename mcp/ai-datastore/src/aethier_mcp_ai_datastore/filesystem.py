@@ -6,7 +6,7 @@ import json
 from aethier_mcp_core import host
 
 from .db import DATASTORE_ROOT
-from .validators import ALLOWED_SOURCE_ROOT, slugify_filename_hint, slugify_note_name
+from .validators import slugify_filename_hint, slugify_note_name
 
 _HOST_FS_SCRIPT = r"""
 import json
@@ -18,7 +18,6 @@ import uuid
 payload = json.loads(sys.argv[1])
 action = payload["action"]
 root = Path(payload["root"]).expanduser().resolve()
-allowed_source_root = Path(payload["allowed_source_root"]).expanduser().resolve()
 
 def _is_within(path: Path, base: Path) -> bool:
     return path == base or str(path).startswith(str(base) + os.sep)
@@ -40,19 +39,6 @@ if action == "write_note":
     tmp_path.write_text(content, encoding="utf-8")
     os.replace(tmp_path, abs_path)
     print(json.dumps({"rel_path": rel_path, "abs_path": str(abs_path)}))
-elif action == "read_source":
-    raw = payload["file_path"]
-    source_path = Path(raw).expanduser().resolve()
-    if not _is_within(source_path, allowed_source_root):
-        raise ValueError(
-            f"file_path must be under {allowed_source_root}; got {source_path}"
-        )
-    if not source_path.exists():
-        raise FileNotFoundError(f"file not found: {source_path}")
-    if not source_path.is_file():
-        raise ValueError(f"path is not a file: {source_path}")
-    text = source_path.read_text(encoding="utf-8")
-    print(json.dumps({"content": text, "source_path": str(source_path)}))
 elif action == "read_rel":
     rel_path = payload["rel_path"]
     abs_path = _safe_rel_path(rel_path)
@@ -66,6 +52,10 @@ elif action == "resolve_rel":
     rel_path = payload["rel_path"]
     abs_path = _safe_rel_path(rel_path)
     print(json.dumps({"abs_path": str(abs_path)}))
+elif action == "exists_rel":
+    rel_path = payload["rel_path"]
+    abs_path = _safe_rel_path(rel_path)
+    print(json.dumps({"exists": abs_path.exists() and abs_path.is_file()}))
 elif action == "delete_rel":
     rel_path = payload["rel_path"]
     abs_path = _safe_rel_path(rel_path)
@@ -93,7 +83,6 @@ async def _host_fs_call(action: str, extra: dict | None = None) -> dict:
     payload = {
         "action": action,
         "root": DATASTORE_ROOT,
-        "allowed_source_root": str(ALLOWED_SOURCE_ROOT),
     }
     if extra:
         payload.update(extra)
@@ -137,11 +126,6 @@ async def write_note_content_at_path(rel_path: str, content: str) -> str:
     return str(out["rel_path"])
 
 
-async def read_source_content(file_path: str) -> str:
-    out = await _host_fs_call("read_source", {"file_path": file_path})
-    return str(out["content"])
-
-
 async def read_note_content_at_path(rel_path: str) -> str:
     out = await _host_fs_call("read_rel", {"rel_path": rel_path})
     return str(out["content"])
@@ -150,6 +134,11 @@ async def read_note_content_at_path(rel_path: str) -> str:
 async def resolve_relative_path(rel_path: str) -> str:
     out = await _host_fs_call("resolve_rel", {"rel_path": rel_path})
     return str(out["abs_path"])
+
+
+async def note_file_exists(rel_path: str) -> bool:
+    out = await _host_fs_call("exists_rel", {"rel_path": rel_path})
+    return bool(out.get("exists", False))
 
 
 async def delete_relative_path(rel_path: str) -> bool:
