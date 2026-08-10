@@ -283,8 +283,11 @@ search_notes_by_label: 'search_notes_by_label(query, workflow_id=None, limit=200
   `limit` / `offset` are pagination controls
   (default 200 / 0).
 
+  Notes whose files have been deleted from disk are automatically pruned from
+  metadata and excluded from results.
+
   Returns:
-  {"matches": [{"workflow_id": "...", "note_id": "...", "labels": ["..."]}, ...]}
+  {"matches": [{"workflow_id": "...", "note_id": "...", "rel_path": "...", "labels": ["..."]}, ...]}
 
   '
 search_notes_by_workflow_id: 'search_notes_by_workflow_id(workflow_id, limit=200, offset=0)
@@ -295,21 +298,24 @@ search_notes_by_workflow_id: 'search_notes_by_workflow_id(workflow_id, limit=200
   `workflow_id` is required. `limit` / `offset` are pagination controls
   (default 200 / 0).
 
+  Notes whose files have been deleted from disk are automatically pruned from
+  metadata and excluded from results.
+
   Returns:
-  {"matches": [{"workflow_id": "...", "note_id": "...", "labels": ["..."]}, ...]}
+  {"matches": [{"workflow_id": "...", "note_id": "...", "rel_path": "...", "labels": ["..."]}, ...]}
 
   '
-create_note: 'create_note(workflow_id, note_description, labels, name, filename_hint=None, note_id=None, content=None, file_path=None)
+create_note: 'create_note(workflow_id, note_description, labels, name, filename_hint=None, note_id=None)
 
 
   Create one note. If `note_id` is omitted, the system assigns a workflow-scoped ID.
   Duplicate `(workflow_id, note_id)` values are rejected.
-  Optional content source: provide at most one of `content` or `file_path`.
-  If both are omitted, an empty note file is created.
-  Note content updates should be performed by editing the note file directly
-  using the returned `abs_path`/`rel_path`, not by calling create_note again.
-  Note content reads should be performed by reading the note file directly
-  from the returned path.
+
+  Creates an empty file at the computed path. Write content to the returned
+  `abs_path` directly using filesystem tools. Read content the same way.
+
+  To delete a note, delete the file at `abs_path`. The datastore will
+  automatically clean up metadata on the next read or search operation.
 
   Automatic UTC system labels are always applied on create:
   - `create_date_utc:YYYY-MM-DD`
@@ -319,17 +325,5 @@ create_note: 'create_note(workflow_id, note_description, labels, name, filename_
   are replaced by the canonical system-generated values above.
 
   Returns the stored note metadata plus final labels and both rel/abs note paths.
-
-  '
-delete_note: 'delete_note(workflow_id, note_id)
-
-
-  Delete one note by workflow and note id.
-
-  Safety requirement: only call this tool after explicit user confirmation
-  for the specific note being deleted.
-
-  Returns:
-  {"status":"ok","deleted":true,"workflow_id":"...","note_id":"...","rel_path":"..."}
 
   '

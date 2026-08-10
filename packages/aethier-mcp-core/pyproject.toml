@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Shared infrastructure for aethier-mcp agents: bridge client + MCP bootstrap."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["mcp>=1.0", "websockets>=13"]
+dependencies = ["mcp>=1.0,<2.0", "websockets>=13"]
 authors = [{ name = "aethier" }]
 
 [build-system]
