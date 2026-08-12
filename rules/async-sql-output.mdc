@@ -1,0 +1,42 @@
+---
+description: Always pipe SELECT query output to a file, then read the file separately
+alwaysApply: true
+---
+
+# Async SQL Output
+
+When running SELECT queries via `snow sql`, ALWAYS redirect output to a file first, then read and process the file separately. Never consume SELECT output inline in a pipeline.
+
+This rule applies ONLY to SELECT/SHOW/DESCRIBE queries. It does NOT apply to:
+- INSERT/UPDATE/DELETE
+- System functions (SELECT SYSTEM$...)
+- ALTER/CREATE/DROP statements
+
+## Never guess column names
+
+ALWAYS use `SELECT *` with `LIMIT 1` first to discover the table structure. Never assume column names exist — submit a structure-discovery query first, inspect the result, THEN write a targeted query with specific columns.
+
+## Correct workflow
+
+1. Discover structure:
+```bash
+snow sql -c <conn> --format json -q "SELECT * FROM <table> LIMIT 1" > /tmp/structure.json
+```
+
+2. Read and inspect:
+```bash
+cat /tmp/structure.json
+```
+
+3. Only THEN write a targeted query using confirmed column names:
+```bash
+snow sql -c <conn> --format json -q "SELECT confirmed_col FROM ..." > /tmp/result.json
+```
+
+## Why
+
+- Never guess on structure — column names vary across views and environments
+- SELECT queries can return large/unexpected results; piping inline hides what came back
+- Separating fetch from read ensures you always see the raw data
+- Prevents jq filtering on data you haven't inspected
+- Output persists for re-inspection without re-running the query

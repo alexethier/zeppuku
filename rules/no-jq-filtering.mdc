@@ -1,0 +1,27 @@
+---
+description: Never use jq to filter or search SQL/API results
+alwaysApply: true
+---
+
+# No jq Filtering on Query Results
+
+NEVER pipe `snow sql` (or any data-fetching command) into `jq` with filtering functions (`select`, `map(select(...))`, `test`, `contains`, `any`, `all`). These silently return empty results when the filter is wrong, making missing data indistinguishable from a bad query.
+
+## Correct workflow
+
+1. Fetch raw results to see what you're working with: `snow sql -c <conn> --format json -q "..." `
+2. Inspect the output structure visually
+3. Only THEN extract known fields with simple jq paths (e.g. `jq '.[0].field'`)
+
+## Allowed jq usage
+
+- Pretty-print: `jq '.'`
+- Extract a specific field you've already confirmed exists: `jq '.[0].name'`
+- Format output: `jq -r '.[] | .name'`
+
+## Forbidden jq usage
+
+- `jq '.[] | select(.field == "value")'`
+- `jq 'map(select(.x | test("pattern")))'`
+- `jq '[.[] | select(.status == "RUNNING")]'`
+- Any filtering before you've seen the raw data

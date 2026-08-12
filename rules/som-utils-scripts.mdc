@@ -1,0 +1,28 @@
+---
+description: Use som-utils shell scripts for common OpenFlow entity operations
+alwaysApply: true
+---
+
+# Use som-utils Scripts for OpenFlow Entity Operations
+
+When performing common OpenFlow entity operations (clone, cleanup, force-drop, state changes), ALWAYS use the scripts in:
+
+`/Users/aethier/playground/the_source/snowflake/openflow-utils/som-utils/`
+
+## Available scripts
+
+| Script | Use when |
+|--------|----------|
+| `clone_connector.sh` | Cloning/duplicating a connector (copies config) |
+| `cleanup_connectors.sh` | Bulk cleanup of connectors |
+| `cleanup_runtimes.sh` | Bulk cleanup of runtimes |
+| `force_drop_entity.sh` | Force-dropping a stuck entity |
+| `set_entity_state.sh` | Force-setting entity state |
+| `clear_entity_tasks.sh` | Clearing entity tasks |
+| `get_entity_tasks.sh` | Viewing entity tasks |
+
+## Rules
+
+- NEVER manually replicate what these scripts do (e.g. never manually CREATE + GET config + PUT config to clone a connector)
+- Run the script with `-h` if you need to check usage
+- All scripts accept `-c <connection>` for the snow CLI connection name
