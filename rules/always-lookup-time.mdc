@@ -1,0 +1,11 @@
+---
+description: Never guess timestamps — always look up current UTC time first
+globs:
+alwaysApply: true
+---
+
+# Always Look Up Current Time
+
+Never guess or fabricate timestamps. Before constructing any time-based query, log window, or tool argument that requires a timestamp, run `date -u` to get the actual current UTC time.
+
+You have no internal clock. The system prompt gives you a date but no time of day. Always anchor to reality first.
