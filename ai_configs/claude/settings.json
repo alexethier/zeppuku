@@ -547,6 +547,11 @@
       "type": "http",
       "url": "http://localhost:8009/mcp"
     },
+    "sf-slack": {
+      "command": "/opt/sf-cli/dist/sf",
+      "args": ["mcp", "natoma", "run", "slack-remote"],
+      "type": "stdio"
+    },
     "slack": {
       "type": "http",
       "url": "https://snow.mcp.natoma-cp.snowflake.com/v2/profile/default-profile/byo-slack-official/mcp"

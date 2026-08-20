@@ -686,6 +686,11 @@ case "$cmd" in
         cmd_list
         ;;
     install|install-agents)
+        if [[ "$WORKSPACE_DIR" == *"zeppuku"* ]]; then
+            err "Do not install from here — it will override install from the external source."
+            err "Run './bin/manager install' from the repo that symlinks to this script."
+            exit 1
+        fi
         cmd_install
         ;;
     *)
