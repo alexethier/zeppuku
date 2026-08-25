@@ -305,14 +305,14 @@ search_notes_by_workflow_id: 'search_notes_by_workflow_id(workflow_id, limit=200
   {"matches": [{"workflow_id": "...", "note_id": "...", "rel_path": "...", "labels": ["..."]}, ...]}
 
   '
-create_note: 'create_note(workflow_id, note_description, labels, name, filename_hint=None, note_id=None)
+create_note: 'create_note(workflow_id, blurb, labels, name, filename_hint=None, note_id=None)
 
 
   Create one note. If `note_id` is omitted, the system assigns a workflow-scoped ID.
   Duplicate `(workflow_id, note_id)` values are rejected.
 
-  Creates an empty file at the computed path. Write content to the returned
-  `abs_path` directly using filesystem tools. Read content the same way.
+  `blurb` (max 300 chars) describes what the note is about — it is not the
+  note content. Write full content to the returned `abs_path` via filesystem tools.
 
   To delete a note, delete the file at `abs_path`. The datastore will
   automatically clean up metadata on the next read or search operation.

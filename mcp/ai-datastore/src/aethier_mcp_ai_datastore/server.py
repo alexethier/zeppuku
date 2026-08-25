@@ -12,16 +12,16 @@ svc = DatastoreService()
 @mcp.tool()
 async def create_note(
     workflow_id: str,
-    note_description: str,
+    blurb: str,
     labels: list[str],
     name: str,
     filename_hint: str | None = None,
     note_id: str | None = None,
 ) -> dict:
-    """Create a note. Call usage('create_note') for details."""
+    """Create a note. `blurb` (max 300 chars) describes what the note is about — write full content to `abs_path`. Call usage('create_note') for details."""
     return await svc.create_note(
         workflow_id=workflow_id,
-        note_description=note_description,
+        blurb=blurb,
         labels=labels,
         name=name,
         filename_hint=filename_hint,

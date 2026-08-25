@@ -53,14 +53,14 @@ class DatastoreService:
     async def create_note(
         self,
         workflow_id: str,
-        note_description: str,
+        blurb: str,
         labels: list[str],
         name: str,
         filename_hint: str | None = None,
         note_id: str | None = None,
     ) -> dict:
         wf = validators.validate_workflow_id(workflow_id)
-        description = validators.validate_note_description(note_description)
+        description = validators.validate_blurb(blurb)
         normalized_labels = validators.normalize_labels(labels)
         note_name = validators.validate_required_note_name(name)
         normalized_filename_hint = validators.validate_optional_filename_hint(filename_hint)
@@ -107,7 +107,7 @@ class DatastoreService:
             "id_source": id_source,
             "workflow_id": wf,
             "note_id": nid,
-            "note_description": description,
+            "blurb": description,
             "name": note_name,
             "filename_hint": normalized_filename_hint,
             "labels": applied_labels,
@@ -181,7 +181,7 @@ class DatastoreService:
             "labels": labels,
             "rel_path": record.rel_path,
             "abs_path": abs_path,
-            "note_description": record.note_description,
+            "blurb": record.note_description,
             "created_at": record.created_at,
             "updated_at": record.updated_at,
             "note": record.to_dict(),

@@ -31,13 +31,13 @@ def validate_note_id(note_id: str) -> str:
     return note_id
 
 
-def validate_note_description(note_description: str) -> str:
-    note_description = note_description.strip()
-    if not note_description:
-        raise ValueError("note_description must be non-empty")
-    if len(note_description) > 500:
-        raise ValueError("note_description must be <= 500 chars")
-    return note_description
+def validate_blurb(blurb: str) -> str:
+    blurb = blurb.strip()
+    if not blurb:
+        raise ValueError("blurb must be non-empty")
+    if len(blurb) > 300:
+        raise ValueError("blurb must be <= 300 chars")
+    return blurb
 
 
 def validate_required_note_name(name: str) -> str:
