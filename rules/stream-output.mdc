@@ -1,0 +1,46 @@
+---
+description: Never pipe long-running commands through tail; use nohup + log file + CronCreate polling
+alwaysApply: true
+---
+
+# Stream Output — Never Tail at End
+
+NEVER pipe long-running commands through `| tail -N`. That hides all output until the command finishes, giving zero visibility into what's happening. If the command hangs or crashes, you see nothing useful until the very end — and if it hangs forever, you see nothing at all.
+
+## Why
+
+- `tail` buffers the entire upstream pipeline until it exits
+- A long command that produces no visible output for 10 minutes then dumps everything is bad design — visibility matters DURING execution
+- Hangs become indistinguishable from "still working"
+- Crashes mid-run lose all context leading up to the failure
+
+## Correct pattern
+
+For any long-running command (tests, builds, remote scripts, provisioning):
+
+1. Launch with `nohup` writing full output to a log file:
+```bash
+nohup some-long-command > /tmp/output.log 2>&1 &
+```
+
+2. Use CronCreate to poll the log file for progress/completion:
+```
+CronCreate(cron="* * * * *", prompt="check /tmp/output.log — tail, check exit code file, report when terminal")
+```
+
+3. Log file persists for inspection at any time — you can tail it yourself, grep it, or wait for completion.
+
+## Forbidden
+
+- `long-cmd 2>&1 | tail -N`
+- `long-cmd | tail -f` (blocks the chat)
+- `Monitor` tool for test/build watching — use CronCreate instead
+- Background bash waits (`Bash` with `run_in_background` + `TaskOutput` polling) — use CronCreate instead
+
+## Scope
+
+This applies to:
+- Test runs (pytest, poetry run regressions, Snowfort, etc.)
+- Builds (Bazel, sf sut setup, oflowctl e2e stages)
+- Any remote command via `oflowctl cws ssh` that takes more than ~10 seconds
+- Any command whose output you'd want to inspect mid-flight
