@@ -268,7 +268,10 @@ _register_in_config() {
         echo '{"mcpServers": {}}' > "$config_file"
     fi
 
-    local tmp; tmp="$(mktemp "${config_file}.XXXXXX")"
+    # Build the new JSON in a temp file OUTSIDE the config dir, then write it into the existing file
+    # in place. Do NOT `mv` a temp file over the config: that swaps in a new inode (mode 600, no ACL)
+    # and silently drops any ACL/mode the user granted (e.g. read for ai_assistant on mcp.json).
+    local tmp; tmp="$(mktemp "${TMPDIR:-/tmp}/mcp-config.XXXXXX")"
     local jq_expr
     if [[ "$target" == "cursor" ]]; then
         jq_expr='.mcpServers = (.mcpServers // {}) | .mcpServers[$name] = {url: $url}'
@@ -282,7 +285,8 @@ _register_in_config() {
         err "failed to update $config_file"
         return 1
     fi
-    mv "$tmp" "$config_file"
+    cat "$tmp" > "$config_file" || { rm -f "$tmp"; err "failed to write $config_file"; return 1; }
+    rm -f "$tmp"
 }
 
 _unregister_in_config() {
@@ -294,14 +298,16 @@ _unregister_in_config() {
         return 0
     fi
 
-    local tmp; tmp="$(mktemp "${config_file}.XXXXXX")"
+    # In-place write (see _register_in_config): preserves inode, mode and ACLs.
+    local tmp; tmp="$(mktemp "${TMPDIR:-/tmp}/mcp-config.XXXXXX")"
     if ! jq --arg name "$server_name" 'del(.mcpServers[$name])' \
         "$config_file" > "$tmp"; then
         rm -f "$tmp"
         err "failed to update $config_file"
         return 1
     fi
-    mv "$tmp" "$config_file"
+    cat "$tmp" > "$config_file" || { rm -f "$tmp"; err "failed to write $config_file"; return 1; }
+    rm -f "$tmp"
 }
 
 _register_in_config_as_user() {
@@ -333,14 +339,16 @@ mkdir -p "$(dirname "$config_file")"
 if [[ ! -f "$config_file" ]]; then
     echo '"'"'{"mcpServers": {}}'"'"' > "$config_file"
 fi
-tmp="$(mktemp "${config_file}.XXXXXX")"
+tmp="$(mktemp "${TMPDIR:-/tmp}/mcp-config.XXXXXX")"
+trap '"'"'rm -f "$tmp"'"'"' EXIT
 if [[ "$target" == "cursor" ]]; then
     jq_expr='"'"'.mcpServers = (.mcpServers // {}) | .mcpServers[$name] = {url: $url}'"'"'
 else
     jq_expr='"'"'.mcpServers = (.mcpServers // {}) | .mcpServers[$name] = {type: "http", url: $url}'"'"'
 fi
 jq --arg name "$server_name" --arg url "$url" "$jq_expr" "$config_file" > "$tmp"
-mv "$tmp" "$config_file"
+# In-place write: keeps inode, mode and ACLs (do not mv a temp file over the config).
+cat "$tmp" > "$config_file"
 ' _ "$config_file" "$server_name" "$url" "$target" 2>/dev/null; then
         return
     fi
@@ -384,9 +392,11 @@ server_name="$2"
 if [[ ! -f "$config_file" ]]; then
     exit 0
 fi
-tmp="$(mktemp "${config_file}.XXXXXX")"
+tmp="$(mktemp "${TMPDIR:-/tmp}/mcp-config.XXXXXX")"
+trap '"'"'rm -f "$tmp"'"'"' EXIT
 jq --arg name "$server_name" '"'"'del(.mcpServers[$name])'"'"' "$config_file" > "$tmp"
-mv "$tmp" "$config_file"
+# In-place write: keeps inode, mode and ACLs (do not mv a temp file over the config).
+cat "$tmp" > "$config_file"
 ' _ "$config_file" "$server_name" 2>/dev/null; then
         return
     fi
