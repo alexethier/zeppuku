@@ -7,9 +7,9 @@
 # - httpx (used by every MCP except host-poc; cheap to include for it too)
 #
 # Per-MCP Dockerfiles FROM this image and add their own package + CMD.
-# Runtime config (MCP_HOST, MCP_PORT, BRIDGE_URL) is set by bin/manager
-# via `docker run -e`, with sane code-side defaults in
-# aethier_mcp_core.server, so no ENV lines are needed here.
+# Runtime config (MCP_HOST, MCP_PORT, BRIDGE_URL) has code-side defaults in
+# aethier_mcp_core, so no ENV lines are needed here. bin/manager overrides
+# BRIDGE_URL via `docker run -e` when the bridge runs on a non-default port.
 #
 # Rebuilt automatically by bin/manager before every MCP build; cached
 # instantly when nothing under packages/aethier-mcp-core/ has changed.

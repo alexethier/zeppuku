@@ -169,6 +169,13 @@ cmd_start() {
         fi
     done
 
+    # Point the container at the bridge's actual port; with no saved port
+    # the container falls back to its built-in default.
+    local bridge_port; bridge_port="$("$STATE" get bridge.port)"
+    if [[ -n "$bridge_port" ]]; then
+        env_args+=(-e "BRIDGE_URL=ws://host.docker.internal:$bridge_port")
+    fi
+
     # Mount the host log dir into the container at the same path so MCPs
     # can append to ~/.aedev/aethier-mcp/mcp.log (the shared tool-call log
     # written by aethier_mcp_core's toollog middleware). Create on host first

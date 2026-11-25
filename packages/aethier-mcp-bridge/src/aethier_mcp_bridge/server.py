@@ -18,7 +18,7 @@ import websockets
 logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
 
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 9000
+DEFAULT_PORT = 9666
 
 # The bridge daemon is launched via `uv run`, which activates aethier-mcp's
 # own .venv. Those activation vars leak into every child process unless we

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Start/stop/status the aethier-mcp host bridge.
 # Idempotent: calling `start` while already running is a no-op.
-# State (pid, port, host) lives in ~/.aedev/aethier-mcp.yaml via aedev-state.
+# State (pid, port) lives in ~/.aedev/aethier-mcp/state.yaml via aedev-state.
 set -euo pipefail
 
 WORKSPACE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -9,7 +9,7 @@ PKG_DIR="$WORKSPACE_DIR/packages/aethier-mcp-bridge"
 STATE="$WORKSPACE_DIR/bin/aedev-state"
 
 HOST="${BRIDGE_HOST:-127.0.0.1}"
-PORT="${BRIDGE_PORT:-9000}"
+PORT="${BRIDGE_PORT:-9666}"
 LOG_FILE="${BRIDGE_LOG_FILE:-$("$STATE" dir)/bridge.log}"
 
 log() { echo "[bridge] $*"; }
@@ -46,7 +46,6 @@ cmd_start() {
 
     local pid=$!
     "$STATE" set bridge.pid  "$pid"
-    "$STATE" set bridge.host "$HOST"
     "$STATE" set bridge.port "$PORT"
 
     for _ in {1..120}; do

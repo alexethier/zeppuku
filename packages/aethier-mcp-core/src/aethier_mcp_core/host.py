@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 import websockets
 
-BRIDGE_URL = os.environ.get("BRIDGE_URL", "ws://host.docker.internal:9000")
+BRIDGE_URL = os.environ.get("BRIDGE_URL", "ws://host.docker.internal:9666")
 
 
 @dataclass
@@ -28,14 +28,12 @@ async def run(
     *args: str,
     cwd: str | None = None,
     env: dict[str, str] | None = None,
-    bridge_url: str | None = None,
 ) -> HostResult:
     """Run a command on the host. Returns when the process exits.
 
     Raises on transport errors (bridge unreachable, etc.). Tool failures
     show up as a non-zero `exit_code` with `stderr` populated, not exceptions.
     """
-    url = bridge_url or BRIDGE_URL
     msg: dict = {"op": "spawn", "cmd": cmd, "args": list(args)}
     if cwd is not None:
         msg["cwd"] = cwd
@@ -47,7 +45,7 @@ async def run(
     exit_code: int | None = None
     error: str | None = None
 
-    async with websockets.connect(url) as ws:
+    async with websockets.connect(BRIDGE_URL) as ws:
         await ws.send(json.dumps(msg))
         async for raw in ws:
             frame = json.loads(raw)
